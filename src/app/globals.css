@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Ink: the desk — neutral charcoal chrome everything is worked from */
+  --color-ink: #17161c;
+  --color-ink-wash: #211f27;
+  --color-ink-line: #34313c;
+  --color-ink-faint: #726d7c;
+
+  /* Paper: the literal manuscript surface */
+  --color-paper: #efede6;
+  --color-paper-dim: #e2dfd4;
+  --color-paper-line: #cfcbbc;
+
+  /* Verdigris: the signature accent — annotations, AI suggestions (aged-ink green) */
+  --color-carbon: #4c9686;
+  --color-carbon-dim: #386f63;
+  --color-carbon-wash: #16221f;
+
+  /* Gold leaf: interactive ink — links, primary actions */
+  --color-fountain: #d6a54b;
+  --color-fountain-dim: #b3873a;
+  --color-fountain-wash: #2a2013;
+
+  --font-display: var(--font-space-grotesk), "Helvetica Neue", Arial, sans-serif;
+  --font-manuscript: var(--font-newsreader), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+body {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--color-carbon);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fountain);
+  outline-offset: 2px;
+}
+
+/* A literal page: the surface every piece of real manuscript prose sits on.
+   Deliberately has no font-family of its own — callers opt into font-manuscript
+   only where the text is actual prose, not for card labels or captions. */
+.page-surface {
+  background: var(--color-paper);
+  color: #232220;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.25),
+    0 12px 30px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* A carbon-copy margin note: the AI's editorial suggestion, pinned beside the chat */
+.carbon-note {
+  background: var(--color-carbon-wash);
+  border: 1px dashed var(--color-carbon);
+  color: #d9ece7;
+  font-family: var(--font-mono);
+  transform: rotate(-0.6deg);
+}
+
+.carbon-note:nth-of-type(even) {
+  transform: rotate(0.5deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .carbon-note {
+    animation: pin-in 240ms ease-out;
+  }
+}
+
+@keyframes pin-in {
+  from {
+    opacity: 0;
+    transform: rotate(-4deg) translateY(-4px);
+  }
+}
