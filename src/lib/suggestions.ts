@@ -1,12 +1,28 @@
-export type SuggestionType = "character" | "scene" | "theme" | "timeline";
-export type SuggestionMarker = { type: SuggestionType; name: string; description: string };
+export type SuggestionType = "character" | "place" | "theme" | "timeline";
+
+export type SuggestionMarker =
+  | { type: "character"; name: string; appearance: string; personality: string }
+  | { type: "place" | "theme" | "timeline"; name: string; description: string };
 
 export function parseSuggestionMarkers(text: string): SuggestionMarker[] {
-  const regex = /\[\[suggest:(character|scene|theme|timeline)\|([^|]+)\|([^\]]+)\]\]/g;
-  const markers: SuggestionMarker[] = [];
+  const found: { index: number; marker: SuggestionMarker }[] = [];
+
+  const characterRegex = /\[\[suggest:character\|([^|]+)\|([^|]+)\|([^\]]+)\]\]/g;
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(text))) {
-    markers.push({ type: match[1] as SuggestionType, name: match[2].trim(), description: match[3].trim() });
+  while ((match = characterRegex.exec(text))) {
+    found.push({
+      index: match.index,
+      marker: { type: "character", name: match[1].trim(), appearance: match[2].trim(), personality: match[3].trim() },
+    });
   }
-  return markers;
+
+  const otherRegex = /\[\[suggest:(place|theme|timeline)\|([^|]+)\|([^\]]+)\]\]/g;
+  while ((match = otherRegex.exec(text))) {
+    found.push({
+      index: match.index,
+      marker: { type: match[1] as "place" | "theme" | "timeline", name: match[2].trim(), description: match[3].trim() },
+    });
+  }
+
+  return found.sort((a, b) => a.index - b.index).map((f) => f.marker);
 }

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { chapters, chatMessages, stories } from "@/db/schema";
+import { chapters, chatMessages, characters, places, stories } from "@/db/schema";
 import { getProvider, type LlmProvider, type ProviderName } from "@/lib/providers";
-import { buildProseSystemPrompt } from "@/lib/prompts";
+import { buildProseSystemPrompt, buildProseTranscript } from "@/lib/prompts";
 
 export async function POST(
   _req: NextRequest,
@@ -35,9 +35,19 @@ export async function generateChapterProse(
     .orderBy(asc(chatMessages.createdAt))
     .all();
 
+  const entities = {
+    characters: db.select().from(characters).where(eq(characters.storyId, storyId)).all(),
+    places: db.select().from(places).where(eq(places.storyId, storyId)).all(),
+  };
+
+  const transcript = buildProseTranscript(history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
+
   const messages = [
-    { role: "system" as const, content: buildProseSystemPrompt(story) },
-    ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    { role: "system" as const, content: buildProseSystemPrompt(story, entities) },
+    {
+      role: "user" as const,
+      content: `Here is the conversation transcript between the novelist and their co-writing assistant for this chapter:\n\n${transcript || "(no conversation yet)"}\n\nNow write the complete, fully realized chapter prose based on everything discussed above.`,
+    },
   ];
 
   const provider = providerOverride ?? getProvider(story.defaultProvider as ProviderName);
@@ -45,6 +55,9 @@ export async function generateChapterProse(
     model: story.defaultModel,
     apiKey: process.env[`${story.defaultProvider.toUpperCase()}_API_KEY`],
     ollamaHost: story.ollamaHost,
+    temperature: story.temperature,
+    thinking: story.extendedThinking,
+    maxTokens: story.maxTokens,
   };
 
   let prose = "";

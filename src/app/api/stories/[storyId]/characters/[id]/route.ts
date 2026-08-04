@@ -5,7 +5,8 @@ import { itemHandlers } from "@/lib/apiRoute";
 
 const characterUpdateInput = z.object({
   name: z.string().min(1),
-  description: z.string(),
+  appearance: z.string(),
+  personality: z.string(),
 });
 
 const repo = createStoryScopedRepo(characters);

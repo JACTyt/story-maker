@@ -1,9 +1,9 @@
 import { db } from "./client";
-import { stories, chapters, chatMessages, characters, scenes, themes, timelineEvents } from "./schema";
+import { stories, chapters, chatMessages, characters, places, themes, timelineEvents } from "./schema";
 
 export function resetTestDb() {
   db.delete(chatMessages).run();
-  db.delete(scenes).run();
+  db.delete(places).run();
   db.delete(characters).run();
   db.delete(themes).run();
   db.delete(timelineEvents).run();

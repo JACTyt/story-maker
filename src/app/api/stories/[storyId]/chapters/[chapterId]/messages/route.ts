@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { chapters, chatMessages, characters, themes, timelineEvents, stories } from "@/db/schema";
+import { chapters, chatMessages, characters, places, themes, timelineEvents, stories } from "@/db/schema";
 import { getProvider, type LlmProvider, type ProviderName } from "@/lib/providers";
 import { buildChatSystemPrompt } from "@/lib/prompts";
 
@@ -45,6 +45,7 @@ export function streamAssistantReply(storyId: number, chapterId: number, provide
 
   const systemPrompt = buildChatSystemPrompt(story, {
     characters: db.select().from(characters).where(eq(characters.storyId, storyId)).all(),
+    places: db.select().from(places).where(eq(places.storyId, storyId)).all(),
     themes: db.select().from(themes).where(eq(themes.storyId, storyId)).all(),
     timelineEvents: db.select().from(timelineEvents).where(eq(timelineEvents.storyId, storyId)).all(),
   });
@@ -59,6 +60,9 @@ export function streamAssistantReply(storyId: number, chapterId: number, provide
     model: story.defaultModel,
     apiKey: process.env[`${story.defaultProvider.toUpperCase()}_API_KEY`],
     ollamaHost: story.ollamaHost,
+    temperature: story.temperature,
+    thinking: story.extendedThinking,
+    maxTokens: story.maxTokens,
   };
 
   const encoder = new TextEncoder();

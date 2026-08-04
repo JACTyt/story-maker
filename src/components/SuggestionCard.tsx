@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Check, X } from "lucide-react";
+import type { SuggestionMarker } from "@/lib/suggestions";
 
-export type Suggestion = { type: "character" | "scene" | "theme" | "timeline"; name: string; description: string };
+export type Suggestion = SuggestionMarker;
 
 export function SuggestionCard({
   suggestion,
@@ -15,7 +16,17 @@ export function SuggestionCard({
   onDismiss: () => void;
 }) {
   const [name, setName] = useState(suggestion.name);
-  const [description, setDescription] = useState(suggestion.description);
+  const [description, setDescription] = useState(suggestion.type === "character" ? "" : suggestion.description);
+  const [appearance, setAppearance] = useState(suggestion.type === "character" ? suggestion.appearance : "");
+  const [personality, setPersonality] = useState(suggestion.type === "character" ? suggestion.personality : "");
+
+  function accept() {
+    if (suggestion.type === "character") {
+      onAccept({ type: "character", name, appearance, personality });
+    } else {
+      onAccept({ type: suggestion.type, name, description });
+    }
+  }
 
   return (
     <div className="carbon-note rounded-sm p-3 text-sm shadow-lg shadow-black/30">
@@ -27,14 +38,31 @@ export function SuggestionCard({
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <textarea
-        className="mb-3 w-full resize-none bg-transparent text-paper/80 focus:outline-none"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
+      {suggestion.type === "character" ? (
+        <>
+          <div className="mb-1 text-[10px] uppercase tracking-widest text-carbon/80">Appearance</div>
+          <textarea
+            className="mb-2 w-full resize-none bg-transparent text-paper/80 focus:outline-none"
+            value={appearance}
+            onChange={(e) => setAppearance(e.target.value)}
+          />
+          <div className="mb-1 text-[10px] uppercase tracking-widest text-carbon/80">Personality</div>
+          <textarea
+            className="mb-3 w-full resize-none bg-transparent text-paper/80 focus:outline-none"
+            value={personality}
+            onChange={(e) => setPersonality(e.target.value)}
+          />
+        </>
+      ) : (
+        <textarea
+          className="mb-3 w-full resize-none bg-transparent text-paper/80 focus:outline-none"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      )}
       <div className="flex gap-3">
         <button
-          onClick={() => onAccept({ type: suggestion.type, name, description })}
+          onClick={accept}
           className="flex items-center gap-1 text-fountain underline hover:text-paper"
         >
           <Check size={13} /> Accept

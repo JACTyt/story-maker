@@ -41,10 +41,10 @@ describe("/api/stories/:storyId/quick-start", () => {
 
   it("groups parsed markers by type", async () => {
     const text = [
-      "[[suggest:character|Mira|A smuggler]]",
-      "[[suggest:character|Jax|A pilot]]",
-      "[[suggest:scene|Docking bay ambush|Mira is cornered]]",
-      "[[suggest:theme|Betrayal|Trust broken]]",
+      "[[suggest:character|Mira|A smuggler's leather jacket|Guarded but loyal]]",
+      "[[suggest:character|Jax|A grizzled pilot|Quietly reckless]]",
+      "[[suggest:place|Docking bay|Mira is cornered here]]",
+      "[[suggest:theme|Cyberpunk|Neon-lit megacorp dystopia]]",
     ].join("\n");
 
     const res = await POST(
@@ -55,23 +55,23 @@ describe("/api/stories/:storyId/quick-start", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.characters).toEqual([
-      { name: "Mira", description: "A smuggler" },
-      { name: "Jax", description: "A pilot" },
+      { name: "Mira", appearance: "A smuggler's leather jacket", personality: "Guarded but loyal" },
+      { name: "Jax", appearance: "A grizzled pilot", personality: "Quietly reckless" },
     ]);
-    expect(body.scenes).toEqual([{ title: "Docking bay ambush", description: "Mira is cornered" }]);
-    expect(body.themes).toEqual([{ name: "Betrayal", description: "Trust broken" }]);
+    expect(body.places).toEqual([{ name: "Docking bay", description: "Mira is cornered here" }]);
+    expect(body.themes).toEqual([{ name: "Cyberpunk", description: "Neon-lit megacorp dystopia" }]);
   });
 
   it("still generates correctly when the story already has existing characters (context assembly doesn't error)", async () => {
-    db.insert(characters).values({ storyId, name: "Existing Character", description: "Already here" }).run();
+    db.insert(characters).values({ storyId, name: "Existing Character", appearance: "Already here", personality: "" }).run();
     const res = await POST(
       req({ description: "More heist crew" }) as any,
       { params: Promise.resolve({ storyId: String(storyId) }) },
-      new FakeProvider("[[suggest:character|Zara|A hacker]]")
+      new FakeProvider("[[suggest:character|Zara|A hacker's cybernetic eye|Paranoid but brilliant]]")
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.characters).toEqual([{ name: "Zara", description: "A hacker" }]);
+    expect(body.characters).toEqual([{ name: "Zara", appearance: "A hacker's cybernetic eye", personality: "Paranoid but brilliant" }]);
   });
 
   it("returns a 502 JSON error instead of crashing when the provider is unreachable", async () => {

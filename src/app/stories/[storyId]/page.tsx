@@ -3,10 +3,10 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import {
-  Clapperboard,
   Clock,
   Download,
   Loader2,
+  MapPin,
   Plus,
   Save,
   Settings as SettingsIcon,
@@ -19,7 +19,7 @@ type Story = { id: number; title: string; premise: string };
 
 const TABS = [
   { href: "characters", label: "Characters", icon: Users },
-  { href: "scenes", label: "Scenes", icon: Clapperboard },
+  { href: "places", label: "Places", icon: MapPin },
   { href: "themes", label: "Themes", icon: Sparkles },
   { href: "timeline", label: "Timeline", icon: Clock },
   { href: "settings", label: "Settings", icon: SettingsIcon },

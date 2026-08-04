@@ -47,6 +47,37 @@ describe("AnthropicProvider", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("bad key", { status: 401 })));
     await expect(collect(new AnthropicProvider().sendChat([], { model: "claude" }))).rejects.toThrow(/401/);
   });
+
+  it("sends temperature and max_tokens when thinking is disabled", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(fakeStream([]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await collect(
+      new AnthropicProvider().sendChat([{ role: "user", content: "hi" }], {
+        model: "claude",
+        temperature: 0.5,
+        maxTokens: 2048,
+      })
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.temperature).toBe(0.5);
+    expect(body.max_tokens).toBe(2048);
+    expect(body.thinking).toBeUndefined();
+  });
+
+  it("enables thinking and omits temperature when thinking is on", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(fakeStream([]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await collect(
+      new AnthropicProvider().sendChat([{ role: "user", content: "hi" }], {
+        model: "claude",
+        temperature: 0.5,
+        thinking: true,
+      })
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 });
+    expect(body.temperature).toBeUndefined();
+  });
 });
 
 describe("OpenAIProvider", () => {
@@ -67,6 +98,23 @@ describe("OpenAIProvider", () => {
     const text = await collect(new OpenAIProvider().sendChat([{ role: "user", content: "hi" }], { model: "gpt" }));
     expect(text).toBe("Hello world");
   });
+
+  it("sends reasoning_effort instead of temperature when thinking is on", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(fakeStream(["data: [DONE]"]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await collect(
+      new OpenAIProvider().sendChat([{ role: "user", content: "hi" }], {
+        model: "gpt",
+        temperature: 0.5,
+        thinking: true,
+        maxTokens: 2048,
+      })
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.reasoning_effort).toBe("medium");
+    expect(body.temperature).toBeUndefined();
+    expect(body.max_completion_tokens).toBe(2048);
+  });
 });
 
 describe("OllamaProvider", () => {
@@ -86,5 +134,21 @@ describe("OllamaProvider", () => {
     );
     const text = await collect(new OllamaProvider().sendChat([{ role: "user", content: "hi" }], { model: "llama3" }));
     expect(text).toBe("Hello world");
+  });
+
+  it("forwards think flag and options.temperature/num_predict", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(fakeStream([]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await collect(
+      new OllamaProvider().sendChat([{ role: "user", content: "hi" }], {
+        model: "deepseek-r1",
+        temperature: 0.7,
+        thinking: true,
+        maxTokens: 8192,
+      })
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.think).toBe(true);
+    expect(body.options).toEqual({ temperature: 0.7, num_predict: 8192 });
   });
 });

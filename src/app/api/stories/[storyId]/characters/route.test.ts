@@ -26,7 +26,7 @@ describe("/api/stories/:storyId/characters", () => {
     const req = new Request(`http://localhost/api/stories/${storyId}/characters`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Mira", description: "A smuggler" }),
+      body: JSON.stringify({ name: "Mira", appearance: "Weathered leather jacket, a scar over one eyebrow", personality: "Guarded but fiercely loyal" }),
     });
     await POST(req as any, { params: Promise.resolve({ storyId: String(storyId) }) });
 

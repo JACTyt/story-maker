@@ -9,6 +9,9 @@ export interface SendChatOptions {
   model: string;
   apiKey?: string;
   ollamaHost?: string;
+  temperature?: number;
+  thinking?: boolean;
+  maxTokens?: number;
 }
 
 export interface LlmProvider {

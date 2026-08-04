@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 
 type Field = { key: string; label: string; multiline?: boolean };
+type SuggestableResourcePath = "characters" | "places" | "themes";
+const SUGGEST_TYPE: Record<SuggestableResourcePath, "character" | "place" | "theme"> = {
+  characters: "character",
+  places: "place",
+  themes: "theme",
+};
 
 export function EntityListPage({
   storyId,
@@ -13,7 +19,7 @@ export function EntityListPage({
   fields,
 }: {
   storyId: string;
-  resourcePath: "characters" | "scenes" | "themes" | "timeline";
+  resourcePath: "characters" | "places" | "themes" | "timeline";
   title: string;
   fields: Field[];
 }) {
@@ -21,13 +27,59 @@ export function EntityListPage({
   const [form, setForm] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+  const [editSuggesting, setEditSuggesting] = useState(false);
+  const [editSuggestError, setEditSuggestError] = useState<string | null>(null);
 
   const url = `/api/stories/${storyId}/${resourcePath}`;
   const isTimeline = resourcePath === "timeline";
+  const nameKey = fields[0]?.key ?? "name";
 
   useEffect(() => {
     fetch(url).then((r) => r.json()).then(setItems);
   }, [url]);
+
+  async function fetchSuggestion(name: string): Promise<Record<string, string>> {
+    const res = await fetch(`/api/stories/${storyId}/suggest-entity`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: SUGGEST_TYPE[resourcePath as SuggestableResourcePath], name }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? "Suggestion failed");
+    return body;
+  }
+
+  async function suggestDetails() {
+    const name = form[nameKey]?.trim();
+    if (!name || isTimeline) return;
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const body = await fetchSuggestion(name);
+      setForm((prev) => ({ ...prev, ...body }));
+    } catch (err) {
+      setSuggestError(err instanceof Error ? err.message : "Suggestion failed");
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  async function suggestEditDetails() {
+    const name = editForm[nameKey]?.trim();
+    if (!name || isTimeline) return;
+    setEditSuggesting(true);
+    setEditSuggestError(null);
+    try {
+      const body = await fetchSuggestion(name);
+      setEditForm((prev) => ({ ...prev, ...body }));
+    } catch (err) {
+      setEditSuggestError(err instanceof Error ? err.message : "Suggestion failed");
+    } finally {
+      setEditSuggesting(false);
+    }
+  }
 
   async function createItem(e: React.FormEvent) {
     e.preventDefault();
@@ -51,11 +103,13 @@ export function EntityListPage({
   function startEdit(item: Record<string, any>) {
     setEditingId(item.id);
     setEditForm(Object.fromEntries(fields.map((f) => [f.key, String(item[f.key] ?? "")])));
+    setEditSuggestError(null);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditForm({});
+    setEditSuggestError(null);
   }
 
   async function saveEdit(id: number) {
@@ -94,13 +148,24 @@ export function EntityListPage({
             />
           )
         )}
-        <div className="flex gap-3 pt-1">
+        {editSuggestError && <p className="font-mono text-xs text-carbon">{editSuggestError}</p>}
+        <div className="flex flex-wrap gap-3 pt-1">
           <button
             onClick={() => saveEdit(item.id)}
             className="flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-fountain underline hover:text-paper"
           >
             <Check size={12} /> Save
           </button>
+          {!isTimeline && (
+            <button
+              onClick={suggestEditDetails}
+              disabled={editSuggesting || !editForm[nameKey]?.trim()}
+              className="flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-paper/60 underline hover:text-fountain disabled:opacity-40"
+            >
+              {editSuggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              {editSuggesting ? "Regenerating..." : "Regenerate"}
+            </button>
+          )}
           <button
             onClick={cancelEdit}
             className="flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-ink-faint underline hover:text-paper/70"
@@ -142,12 +207,26 @@ export function EntityListPage({
             />
           )
         )}
-        <button
-          type="submit"
-          className="flex items-center gap-1.5 rounded-sm bg-paper px-4 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:bg-paper-dim"
-        >
-          <Plus size={13} /> Add to the record
-        </button>
+        {suggestError && <p className="font-mono text-xs text-carbon">{suggestError}</p>}
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 rounded-sm bg-paper px-4 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:bg-paper-dim"
+          >
+            <Plus size={13} /> Add to the record
+          </button>
+          {!isTimeline && (
+            <button
+              type="button"
+              onClick={suggestDetails}
+              disabled={suggesting || !form[nameKey]?.trim()}
+              className="flex items-center gap-1.5 rounded-sm border border-ink-line px-4 py-2 font-mono text-xs uppercase tracking-wide text-paper/70 hover:border-fountain hover:text-fountain disabled:opacity-40"
+            >
+              {suggesting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {suggesting ? "Suggesting..." : "Suggest"}
+            </button>
+          )}
+        </div>
       </form>
 
       {items.length === 0 ? (
@@ -199,8 +278,15 @@ export function EntityListPage({
               ) : (
                 <>
                   <div className="mb-1 mt-2 font-display text-lg">{item[fields[0].key]}</div>
-                  {item[fields[1]?.key] && (
-                    <p className="text-sm text-ink/70">{item[fields[1].key]}</p>
+                  {fields.slice(1).map((f) =>
+                    item[f.key] ? (
+                      <div key={f.key} className="mt-1.5">
+                        {fields.length > 2 && (
+                          <div className="font-mono text-[10px] uppercase tracking-widest text-ink/40">{f.label}</div>
+                        )}
+                        <p className="text-sm text-ink/70">{item[f.key]}</p>
+                      </div>
+                    ) : null
                   )}
                   <div className="mt-3 flex gap-3">
                     <button

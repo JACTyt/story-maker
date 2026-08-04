@@ -23,12 +23,14 @@ describe("QuickStartPage", () => {
     const fetchMock = vi.fn();
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
-        characters: [{ name: "Mira", description: "A smuggler" }],
-        scenes: [],
+        characters: [{ name: "Mira", appearance: "Scar over one eyebrow", personality: "Guarded but loyal" }],
+        places: [],
         themes: [],
       })
     );
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 1, name: "Mira", description: "A smuggler" }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 1, name: "Mira", appearance: "Scar over one eyebrow", personality: "Guarded but loyal" })
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await act(async () => {
@@ -50,7 +52,11 @@ describe("QuickStartPage", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const [, saveCall] = fetchMock.mock.calls;
     expect(saveCall[0]).toBe("/api/stories/1/characters");
-    expect(JSON.parse(saveCall[1].body)).toEqual({ name: "Mira", description: "A smuggler" });
+    expect(JSON.parse(saveCall[1].body)).toEqual({
+      name: "Mira",
+      appearance: "Scar over one eyebrow",
+      personality: "Guarded but loyal",
+    });
   });
 
   it("shows an inline error and preserves the description when generation fails", async () => {
@@ -76,7 +82,7 @@ describe("QuickStartPage", () => {
   it("shows a notice and still offers blank cards when the model returns zero markers", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ characters: [], scenes: [], themes: [] }));
+      .mockResolvedValueOnce(jsonResponse({ characters: [], places: [], themes: [] }));
     vi.stubGlobal("fetch", fetchMock);
 
     await act(async () => {

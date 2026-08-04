@@ -6,6 +6,19 @@ export class AnthropicProvider implements LlmProvider {
     const system = messages.find((m) => m.role === "system")?.content;
     const rest = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content }));
 
+    const body: Record<string, unknown> = {
+      model: options.model,
+      max_tokens: options.maxTokens ?? 4096,
+      system,
+      messages: rest,
+      stream: true,
+    };
+    if (options.thinking) {
+      body.thinking = { type: "enabled", budget_tokens: 1024 };
+    } else if (options.temperature !== undefined) {
+      body.temperature = options.temperature;
+    }
+
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -13,7 +26,7 @@ export class AnthropicProvider implements LlmProvider {
         "x-api-key": options.apiKey ?? "",
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ model: options.model, max_tokens: 4096, system, messages: rest, stream: true }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok || !res.body) {

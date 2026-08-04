@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { stories, characters, scenes, themes } from "@/db/schema";
+import { stories, characters, places, themes } from "@/db/schema";
 import { getProvider, type LlmProvider, type ProviderName } from "@/lib/providers";
 import { buildQuickStartPrompt } from "@/lib/prompts";
 import { parseSuggestionMarkers } from "@/lib/suggestions";
@@ -23,7 +23,7 @@ export async function POST(
 
   const existing = {
     characters: db.select().from(characters).where(eq(characters.storyId, storyIdNum)).all(),
-    scenes: db.select().from(scenes).where(eq(scenes.storyId, storyIdNum)).all(),
+    places: db.select().from(places).where(eq(places.storyId, storyIdNum)).all(),
     themes: db.select().from(themes).where(eq(themes.storyId, storyIdNum)).all(),
   };
 
@@ -37,6 +37,9 @@ export async function POST(
     model: story.defaultModel,
     apiKey: process.env[`${story.defaultProvider.toUpperCase()}_API_KEY`],
     ollamaHost: story.ollamaHost,
+    temperature: story.temperature,
+    thinking: story.extendedThinking,
+    maxTokens: story.maxTokens,
   };
 
   let text = "";
@@ -50,9 +53,15 @@ export async function POST(
   }
 
   const markers = parseSuggestionMarkers(text);
+  type Marker = (typeof markers)[number];
+  const isType =
+    <T extends Marker["type"]>(type: T) =>
+    (m: Marker): m is Extract<Marker, { type: T }> =>
+      m.type === type;
+
   return NextResponse.json({
-    characters: markers.filter((m) => m.type === "character").map(({ name, description }) => ({ name, description })),
-    scenes: markers.filter((m) => m.type === "scene").map(({ name, description }) => ({ title: name, description })),
-    themes: markers.filter((m) => m.type === "theme").map(({ name, description }) => ({ name, description })),
+    characters: markers.filter(isType("character")).map(({ name, appearance, personality }) => ({ name, appearance, personality })),
+    places: markers.filter(isType("place")).map(({ name, description }) => ({ name, description })),
+    themes: markers.filter(isType("theme")).map(({ name, description }) => ({ name, description })),
   });
 }

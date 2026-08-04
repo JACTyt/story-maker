@@ -1,14 +1,16 @@
 "use client";
 
-export type Variant = { name: string; description: string; checked: boolean };
+export type Variant = { name: string; checked: boolean; values: Record<string, string> };
 
 export function VariantCard({
   variant,
   nameLabel,
+  fields,
   onChange,
 }: {
   variant: Variant;
   nameLabel: string;
+  fields: { key: string; label: string }[];
   onChange: (next: Variant) => void;
 }) {
   return (
@@ -27,13 +29,16 @@ export function VariantCard({
         value={variant.name}
         onChange={(e) => onChange({ ...variant, name: e.target.value })}
       />
-      <textarea
-        className="w-full resize-none rounded-sm border border-ink-line bg-ink px-2 py-1.5 text-sm text-paper focus:border-fountain focus:outline-none"
-        placeholder="Description"
-        value={variant.description}
-        onChange={(e) => onChange({ ...variant, description: e.target.value })}
-        rows={3}
-      />
+      {fields.map((f) => (
+        <textarea
+          key={f.key}
+          className="mb-2 w-full resize-none rounded-sm border border-ink-line bg-ink px-2 py-1.5 text-sm text-paper focus:border-fountain focus:outline-none last:mb-0"
+          placeholder={f.label}
+          value={variant.values[f.key] ?? ""}
+          onChange={(e) => onChange({ ...variant, values: { ...variant.values, [f.key]: e.target.value } })}
+          rows={3}
+        />
+      ))}
     </div>
   );
 }

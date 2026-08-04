@@ -4,7 +4,15 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Save, AlertCircle } from "lucide-react";
 
-type StorySettings = { defaultProvider: string; defaultModel: string; ollamaHost: string };
+type StorySettings = {
+  defaultProvider: string;
+  defaultModel: string;
+  ollamaHost: string;
+  systemPrompt: string;
+  temperature: number;
+  extendedThinking: boolean;
+  maxTokens: number;
+};
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 export default function SettingsPage({ params }: { params: Promise<{ storyId: string }> }) {
@@ -15,7 +23,17 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
   useEffect(() => {
     fetch(`/api/stories/${storyId}`)
       .then((r) => r.json())
-      .then((s) => setSettings({ defaultProvider: s.defaultProvider, defaultModel: s.defaultModel, ollamaHost: s.ollamaHost }));
+      .then((s) =>
+        setSettings({
+          defaultProvider: s.defaultProvider,
+          defaultModel: s.defaultModel,
+          ollamaHost: s.ollamaHost,
+          systemPrompt: s.systemPrompt ?? "",
+          temperature: s.temperature ?? 1,
+          extendedThinking: s.extendedThinking ?? false,
+          maxTokens: s.maxTokens ?? 4096,
+        })
+      );
   }, [storyId]);
 
   async function save() {
@@ -35,6 +53,10 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
               defaultProvider: updated.defaultProvider ?? prev.defaultProvider,
               defaultModel: updated.defaultModel ?? prev.defaultModel,
               ollamaHost: updated.ollamaHost ?? prev.ollamaHost,
+              systemPrompt: updated.systemPrompt ?? prev.systemPrompt,
+              temperature: updated.temperature ?? prev.temperature,
+              extendedThinking: updated.extendedThinking ?? prev.extendedThinking,
+              maxTokens: updated.maxTokens ?? prev.maxTokens,
             }
           : prev
       );
@@ -95,6 +117,60 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
             />
           </div>
         )}
+
+        <div>
+          <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">
+            Custom instructions
+          </label>
+          <textarea
+            rows={4}
+            placeholder="Extra guidance for the assistant, e.g. tone, POV, style rules..."
+            className="w-full resize-y rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper placeholder:text-ink-faint focus:border-fountain focus:outline-none"
+            value={settings.systemPrompt}
+            onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 flex items-center justify-between font-mono text-xs uppercase tracking-widest text-ink-faint">
+            Temperature
+            <span className="text-paper/70">{settings.temperature.toFixed(1)}</span>
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.1}
+            value={settings.temperature}
+            onChange={(e) => setSettings({ ...settings, temperature: Number(e.target.value) })}
+            className="w-full accent-fountain"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">
+            Max output tokens
+          </label>
+          <input
+            type="number"
+            min={256}
+            max={64000}
+            step={256}
+            className="w-full rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper focus:border-fountain focus:outline-none"
+            value={settings.maxTokens}
+            onChange={(e) => setSettings({ ...settings, maxTokens: Number(e.target.value) })}
+          />
+        </div>
+
+        <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-ink-faint">
+          <input
+            type="checkbox"
+            checked={settings.extendedThinking}
+            onChange={(e) => setSettings({ ...settings, extendedThinking: e.target.checked })}
+            className="accent-fountain"
+          />
+          Extended thinking
+        </label>
 
         <div className="flex items-center gap-3">
           <button

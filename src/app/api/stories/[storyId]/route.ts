@@ -10,6 +10,10 @@ const storyUpdateInput = z.object({
   defaultProvider: z.enum(["anthropic", "openai", "ollama"]).optional(),
   defaultModel: z.string().optional(),
   ollamaHost: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  extendedThinking: z.boolean().optional(),
+  maxTokens: z.number().int().min(256).max(64000).optional(),
   compiledProse: z.string().optional(),
 });
 

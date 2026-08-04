@@ -5,7 +5,8 @@ import { listCreateHandlers } from "@/lib/apiRoute";
 
 const characterInput = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().optional().default(""),
+  appearance: z.string().optional().default(""),
+  personality: z.string().optional().default(""),
 });
 
 const repo = createStoryScopedRepo(characters);

@@ -12,7 +12,8 @@ export default function CharactersPage({ params }: { params: Promise<{ storyId: 
       title="Characters"
       fields={[
         { key: "name", label: "Name" },
-        { key: "description", label: "Description", multiline: true },
+        { key: "appearance", label: "Appearance", multiline: true },
+        { key: "personality", label: "Personality", multiline: true },
       ]}
     />
   );

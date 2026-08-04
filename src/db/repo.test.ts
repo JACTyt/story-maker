@@ -11,14 +11,14 @@ describe("createStoryScopedRepo", () => {
     const story = db.insert(stories).values({ title: "Repo Test Story" }).returning().get();
     const repo = createStoryScopedRepo(characters);
 
-    const created = repo.create({ storyId: story.id, name: "Mira", description: "A smuggler" });
+    const created = repo.create({ storyId: story.id, name: "Mira", appearance: "A smuggler's jacket", personality: "Guarded" });
     expect(created.name).toBe("Mira");
 
     expect(repo.get(created.id)?.name).toBe("Mira");
     expect(repo.list(story.id)).toHaveLength(1);
 
-    const updated = repo.update(created.id, { description: "A reformed smuggler" });
-    expect(updated.description).toBe("A reformed smuggler");
+    const updated = repo.update(created.id, { personality: "Reformed and hopeful" });
+    expect(updated.personality).toBe("Reformed and hopeful");
 
     repo.remove(created.id);
     expect(repo.list(story.id)).toHaveLength(0);

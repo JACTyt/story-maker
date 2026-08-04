@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 
 export const stories = sqliteTable("stories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -9,6 +9,10 @@ export const stories = sqliteTable("stories", {
     .default("anthropic"),
   defaultModel: text("default_model").notNull().default(""),
   ollamaHost: text("ollama_host").notNull().default("http://localhost:11434"),
+  systemPrompt: text("system_prompt").notNull().default(""),
+  temperature: real("temperature").notNull().default(1),
+  extendedThinking: integer("extended_thinking", { mode: "boolean" }).notNull().default(false),
+  maxTokens: integer("max_tokens").notNull().default(4096),
   compiledProse: text("compiled_prose"),
   compiledAt: integer("compiled_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
@@ -45,18 +49,19 @@ export const characters = sqliteTable("characters", {
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  description: text("description").notNull().default(""),
+  appearance: text("appearance").notNull().default(""),
+  personality: text("personality").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const scenes = sqliteTable("scenes", {
+export const places = sqliteTable("places", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   storyId: integer("story_id")
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
   chapterId: integer("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
-  title: text("title").notNull(),
+  name: text("name").notNull(),
   description: text("description").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),

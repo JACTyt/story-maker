@@ -35,11 +35,17 @@ describe("Settings page", () => {
 
     expect(await screen.findByDisplayValue("claude-sonnet-5")).toBeInTheDocument();
 
+    await userEvent.type(screen.getByPlaceholderText(/Extra guidance/), "Write in first person.");
+    await userEvent.click(screen.getByLabelText("Extended thinking"));
+
     await userEvent.click(screen.getByText("Save"));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const [, patchCall] = fetchMock.mock.calls;
     expect(patchCall[1].method).toBe("PATCH");
+    const patchBody = JSON.parse(patchCall[1].body);
+    expect(patchBody.systemPrompt).toBe("Write in first person.");
+    expect(patchBody.extendedThinking).toBe(true);
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 

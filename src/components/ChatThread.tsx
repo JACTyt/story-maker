@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, RotateCcw, Send } from "lucide-react";
-import { parseSuggestionMarkers, type SuggestionType } from "@/lib/suggestions";
+import { parseSuggestionMarkers, type SuggestionMarker } from "@/lib/suggestions";
 
 export type ChatMessageRow = { id: number; role: "user" | "assistant"; content: string; incomplete: boolean };
 
@@ -13,7 +13,7 @@ export function ChatThread({
 }: {
   storyId: string;
   chapterId: string;
-  onSuggestion?: (block: { type: SuggestionType; name: string; description: string }) => void;
+  onSuggestion?: (block: SuggestionMarker) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessageRow[]>([]);
   const [draft, setDraft] = useState("");
