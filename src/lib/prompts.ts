@@ -1,3 +1,5 @@
+import { stripSuggestionMarkers } from "./suggestions";
+
 type NamedEntity = { name: string; description: string };
 type CharacterEntity = { name: string; appearance: string; personality: string };
 type TimelineEntity = { title: string; description: string; inStoryDateLabel: string };
@@ -62,7 +64,7 @@ export function buildProseSystemPrompt(
 
 export function buildProseTranscript(history: { role: "user" | "assistant"; content: string }[]): string {
   return history
-    .map((m) => `${m.role === "user" ? "Novelist" : "Co-writer"}: ${m.content.replace(/\[\[suggest:[^\]]*\]\]/g, "").trim()}`)
+    .map((m) => `${m.role === "user" ? "Novelist" : "Co-writer"}: ${stripSuggestionMarkers(m.content)}`)
     .filter((line) => !line.endsWith(": "))
     .join("\n\n");
 }

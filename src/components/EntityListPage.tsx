@@ -12,6 +12,14 @@ const SUGGEST_TYPE: Record<SuggestableResourcePath, "character" | "place" | "the
   themes: "theme",
 };
 
+import { ImageStrip } from "./ImageStrip";
+
+// Only these two entity kinds have a visual identity worth attaching.
+const IMAGE_ENTITY: Partial<Record<"characters" | "places" | "themes" | "timeline", "character" | "place">> = {
+  characters: "character",
+  places: "place",
+};
+
 export function EntityListPage({
   storyId,
   resourcePath,
@@ -287,6 +295,15 @@ export function EntityListPage({
                         <p className="text-sm text-ink/70">{item[f.key]}</p>
                       </div>
                     ) : null
+                  )}
+                  {IMAGE_ENTITY[resourcePath] && (
+                    <div className="mt-3">
+                      <ImageStrip
+                        storyId={storyId}
+                        entityType={IMAGE_ENTITY[resourcePath]!}
+                        entityId={item.id}
+                      />
+                    </div>
                   )}
                   <div className="mt-3 flex gap-3">
                     <button

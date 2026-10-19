@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { chapters, chatMessages, characters, places, stories } from "@/db/schema";
 import { getProvider, type LlmProvider, type ProviderName } from "@/lib/providers";
 import { buildProseSystemPrompt, buildProseTranscript } from "@/lib/prompts";
+import { recordProseVersion } from "@/db/proseVersions";
 
 export async function POST(
   _req: NextRequest,
@@ -65,10 +66,9 @@ export async function generateChapterProse(
     prose += chunk;
   }
 
-  db.update(chapters)
-    .set({ generatedProse: prose, status: "generated", updatedAt: new Date() })
-    .where(eq(chapters.id, chapterId))
-    .run();
+  // Appends to the chapter's history instead of overwriting it: a regeneration
+  // must never be able to destroy a draft the writer might still want.
+  recordProseVersion(chapterId, { content: prose, source: "generated", model: story.defaultModel || undefined });
 
   return { generatedProse: prose, status: "generated" };
 }

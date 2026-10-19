@@ -4,6 +4,7 @@ import { stories, chapters, chatMessages } from "@/db/schema";
 import { resetTestDb } from "@/db/testDb";
 import { eq } from "drizzle-orm";
 import { POST } from "./route";
+import { listProseVersions, currentProse } from "@/db/proseVersions";
 import type { ChatMessage, LlmProvider, SendChatOptions } from "@/lib/providers";
 
 class FakeProvider implements LlmProvider {
@@ -58,5 +59,48 @@ describe("/api/.../generate (chapter)", () => {
 
     const stored = db.select().from(chapters).where(eq(chapters.id, chapterId)).get();
     expect(stored?.status).toBe("drafting");
+  });
+});
+
+describe("/api/.../generate keeps prior drafts", () => {
+  let storyId: number;
+  let chapterId: number;
+
+  beforeEach(() => {
+    resetTestDb();
+    storyId = db.insert(stories).values({ title: "Test Story", premise: "A war brews" }).returning().get().id;
+    chapterId = db.insert(chapters).values({ storyId, title: "Chapter 1" }).returning().get().id;
+    db.insert(chatMessages).values({ chapterId, role: "user", content: "Mira sneaks aboard." }).run();
+  });
+
+  function generate(text: string) {
+    return POST(
+      new Request("http://localhost") as any,
+      { params: Promise.resolve({ storyId: String(storyId), chapterId: String(chapterId) }) },
+      new FakeProvider(text)
+    );
+  }
+
+  it("preserves the first draft after a second generation", async () => {
+    await generate("First draft.");
+    await generate("Second draft.");
+
+    expect(listProseVersions(chapterId).map((v) => v.content)).toEqual(["Second draft.", "First draft."]);
+  });
+
+  it("returns the newest draft as the chapter's prose", async () => {
+    await generate("First draft.");
+    const res = await generate("Second draft.");
+
+    expect((await res.json()).generatedProse).toBe("Second draft.");
+    expect(currentProse(chapterId)).toBe("Second draft.");
+  });
+
+  it("records the model that produced the draft", async () => {
+    db.update(stories).set({ defaultModel: "claude-opus-5" }).where(eq(stories.id, storyId)).run();
+
+    await generate("First draft.");
+
+    expect(listProseVersions(chapterId)[0].model).toBe("claude-opus-5");
   });
 });

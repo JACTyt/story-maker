@@ -4,6 +4,7 @@ import { stories, chapters } from "@/db/schema";
 import { resetTestDb } from "@/db/testDb";
 import { eq } from "drizzle-orm";
 import { GET, PATCH } from "./route";
+import { listProseVersions, recordProseVersion } from "@/db/proseVersions";
 
 describe("/api/stories/:storyId/chapters/:chapterId", () => {
   let storyId: number;
@@ -40,5 +41,55 @@ describe("/api/stories/:storyId/chapters/:chapterId", () => {
 
     const stored = db.select().from(chapters).where(eq(chapters.id, chapterId)).get();
     expect(stored?.generatedProse).toBe("Hand-edited opening line.");
+  });
+});
+
+describe("PATCH chapter prose is versioned", () => {
+  let storyId2: number;
+  let chapterId2: number;
+
+  beforeEach(() => {
+    resetTestDb();
+    storyId2 = db.insert(stories).values({ title: "Test Story" }).returning().get().id;
+    chapterId2 = db.insert(chapters).values({ storyId: storyId2, title: "Chapter 1" }).returning().get().id;
+  });
+
+  function patch(body: Record<string, unknown>) {
+    return PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }) as never,
+      { params: Promise.resolve({ storyId: String(storyId2), chapterId: String(chapterId2) }) }
+    );
+  }
+
+  it("records a hand-edited draft as a version", async () => {
+    await patch({ generatedProse: "I rewrote this myself." });
+
+    expect(listProseVersions(chapterId2).map((v) => v.content)).toEqual(["I rewrote this myself."]);
+  });
+
+  it("marks a hand-edited draft as edited rather than generated", async () => {
+    await patch({ generatedProse: "I rewrote this myself." });
+
+    expect(listProseVersions(chapterId2)[0].source).toBe("edited");
+  });
+
+  it("keeps the generated draft when the writer edits it", async () => {
+    recordProseVersion(chapterId2, { content: "Machine draft.", source: "generated" });
+
+    await patch({ generatedProse: "Human revision." });
+
+    expect(listProseVersions(chapterId2).map((v) => v.content)).toEqual(["Human revision.", "Machine draft."]);
+  });
+
+  it("does not create a version when only the title changes", async () => {
+    recordProseVersion(chapterId2, { content: "Draft.", source: "generated" });
+
+    await patch({ title: "A Better Title" });
+
+    expect(listProseVersions(chapterId2)).toHaveLength(1);
   });
 });

@@ -2,12 +2,15 @@
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Eye, Loader2, Pencil, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Eye, History, Loader2, Pencil, Save, Sparkles } from "lucide-react";
 import { ChatThread } from "@/components/ChatThread";
 import { SuggestionCard, type Suggestion } from "@/components/SuggestionCard";
 import { ReferenceSidebar } from "@/components/ReferenceSidebar";
 import { ResizeHandle } from "@/components/ResizeHandle";
+import { ProseHistory } from "@/components/ProseHistory";
 import { parseRichText, type RichSegment } from "@/lib/richText";
+import { suggestionKey } from "@/lib/suggestions";
+import { loadDismissedKeys, rememberDismissedKey, selectNewSuggestions } from "@/lib/pendingSuggestions";
 
 const RESOURCE_PATH: Record<Suggestion["type"], string> = {
   character: "characters",
@@ -15,6 +18,14 @@ const RESOURCE_PATH: Record<Suggestion["type"], string> = {
   theme: "themes",
   timeline: "timeline",
 };
+
+// Timeline events title their entries differently from every other entity.
+const BIBLE_SOURCES: { path: string; type: Suggestion["type"]; nameField: "name" | "title" }[] = [
+  { path: "characters", type: "character", nameField: "name" },
+  { path: "places", type: "place", nameField: "name" },
+  { path: "themes", type: "theme", nameField: "name" },
+  { path: "timeline", type: "timeline", nameField: "title" },
+];
 
 type PendingSuggestion = { id: number; suggestion: Suggestion };
 type Place = { id: number; name: string; description: string };
@@ -81,8 +92,13 @@ export default function ChapterViewPage({
   const [bibleRefreshToken, setBibleRefreshToken] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [mode, setMode] = useState<"edit" | "preview" | "history">("edit");
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [places, setPlaces] = useState<Place[]>([]);
+  // Held as refs, not state: the suggestion handler fires from a child effect,
+  // where state captured at render time would already be stale.
+  const existingKeys = useRef<string[]>([]);
+  const dismissedKeys = useRef<string[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
   const [coWritingWidth, setCoWritingWidth] = useState(COWRITING_DEFAULT);
 
@@ -124,6 +140,36 @@ export default function ChapterViewPage({
       .then(setPlaces);
   }, [storyId, bibleRefreshToken]);
 
+  useEffect(() => {
+    dismissedKeys.current = loadDismissedKeys(chapterId);
+  }, [chapterId]);
+
+  // Chat history is re-parsed on every mount, so the bible is what tells us
+  // which of those suggestions the writer already acted on.
+  useEffect(() => {
+    Promise.all(
+      BIBLE_SOURCES.map((source) =>
+        fetch(`/api/stories/${storyId}/${source.path}`)
+          .then((r) => r.json())
+          .catch(() => [])
+      )
+    ).then((results) => {
+      existingKeys.current = results.flatMap((rows, i) => {
+        const { type, nameField } = BIBLE_SOURCES[i];
+        return (Array.isArray(rows) ? rows : []).map((row) =>
+          suggestionKey({ type, name: String(row?.[nameField] ?? "") })
+        );
+      });
+    });
+  }, [storyId, bibleRefreshToken]);
+
+  function dismissSuggestion(id: number, s: Suggestion) {
+    const key = suggestionKey(s);
+    rememberDismissedKey(chapterId, key);
+    dismissedKeys.current = [...dismissedKeys.current, key];
+    setPendingSuggestions((prev) => prev.filter((p) => p.id !== id));
+  }
+
   async function acceptSuggestion(id: number, s: Suggestion) {
     setSuggestionError(null);
     const path = RESOURCE_PATH[s.type];
@@ -140,6 +186,7 @@ export default function ChapterViewPage({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Save failed");
+      existingKeys.current = [...existingKeys.current, suggestionKey(s)];
       setPendingSuggestions((prev) => prev.filter((p) => p.id !== id));
       setBibleRefreshToken((prev) => prev + 1);
       setAddedNotice(`Added "${s.name}" to the story bible`);
@@ -158,6 +205,7 @@ export default function ChapterViewPage({
       if (!res.ok) throw new Error(body?.error || "Generation failed");
       setProse(body.generatedProse);
       setStatus(body.status);
+      setHistoryRefreshToken((prev) => prev + 1);
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : "Generation failed — check your provider settings and try again.");
     } finally {
@@ -171,6 +219,8 @@ export default function ChapterViewPage({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ generatedProse: prose }),
     });
+    // The edit is stored as its own version, so the history has a new entry.
+    setHistoryRefreshToken((prev) => prev + 1);
   }
 
   return (
@@ -204,7 +254,14 @@ export default function ChapterViewPage({
               storyId={storyId}
               chapterId={chapterId}
               onSuggestion={(s) =>
-                setPendingSuggestions((prev) => [...prev, { id: nextSuggestionId.current++, suggestion: s }])
+                setPendingSuggestions((prev) => {
+                  const [fresh] = selectNewSuggestions([s], {
+                    existing: existingKeys.current,
+                    dismissed: dismissedKeys.current,
+                    pending: prev.map((p) => suggestionKey(p.suggestion)),
+                  });
+                  return fresh ? [...prev, { id: nextSuggestionId.current++, suggestion: fresh }] : prev;
+                })
               }
             />
           </div>
@@ -221,7 +278,7 @@ export default function ChapterViewPage({
                   key={id}
                   suggestion={suggestion}
                   onAccept={(edited) => acceptSuggestion(id, edited)}
-                  onDismiss={() => setPendingSuggestions((prev) => prev.filter((p) => p.id !== id))}
+                  onDismiss={() => dismissSuggestion(id, suggestion)}
                 />
               ))}
             </div>
@@ -252,6 +309,14 @@ export default function ChapterViewPage({
                 >
                   <Eye size={12} /> Preview
                 </button>
+                <button
+                  onClick={() => setMode("history")}
+                  className={`flex items-center gap-1 rounded-sm px-2 py-1 font-mono text-xs uppercase tracking-wide ${
+                    mode === "history" ? "bg-paper text-ink" : "text-paper/50 hover:text-paper/80"
+                  }`}
+                >
+                  <History size={12} /> History
+                </button>
               </div>
               <button
                 onClick={generateChapter}
@@ -265,17 +330,29 @@ export default function ChapterViewPage({
           </div>
           {generateError && <p className="mb-2 font-mono text-xs text-carbon">{generateError}</p>}
           <div className="page-surface flex-1 overflow-y-auto rounded-sm p-6">
-            {mode === "edit" ? (
+            {mode === "edit" && (
               <textarea
                 className="h-full w-full resize-none bg-transparent font-manuscript text-base leading-relaxed focus:outline-none"
                 value={prose}
                 onChange={(e) => setProse(e.target.value)}
                 placeholder="Nothing generated yet. Talk it through on the left, then generate this chapter."
               />
-            ) : (
+            )}
+            {mode === "preview" && (
               <div className="font-manuscript text-base leading-relaxed">
                 <ProsePreview text={prose} places={places} />
               </div>
+            )}
+            {mode === "history" && (
+              <ProseHistory
+                storyId={storyId}
+                chapterId={chapterId}
+                refreshToken={historyRefreshToken}
+                onReverted={(content) => {
+                  setProse(content);
+                  setStatus("generated");
+                }}
+              />
             )}
           </div>
           {mode === "edit" && (

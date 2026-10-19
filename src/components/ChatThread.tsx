@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, RotateCcw, Send } from "lucide-react";
-import { parseSuggestionMarkers, type SuggestionMarker } from "@/lib/suggestions";
+import {
+  parseSuggestionMarkers,
+  stripSuggestionMarkers,
+  suggestionKey,
+  type SuggestionMarker,
+} from "@/lib/suggestions";
 
 export type ChatMessageRow = { id: number; role: "user" | "assistant"; content: string; incomplete: boolean };
 
@@ -24,10 +29,32 @@ export function ChatThread({
   const onSuggestionRef = useRef(onSuggestion);
   onSuggestionRef.current = onSuggestion;
 
+  // Markers already handed to the parent, so a marker that appears in both the
+  // live stream and the history refreshed straight after it only surfaces once.
+  const emittedKeys = useRef<Set<string>>(new Set());
+
+  function emitSuggestions(text: string) {
+    const markers = parseSuggestionMarkers(text, (body) =>
+      console.warn(`[story-maker] ignored an unparseable suggestion marker: [[suggest:${body}]]`)
+    );
+    for (const marker of markers) {
+      const key = suggestionKey(marker);
+      if (emittedKeys.current.has(key)) continue;
+      emittedKeys.current.add(key);
+      onSuggestionRef.current?.(marker);
+    }
+  }
+
   useEffect(() => {
+    emittedKeys.current = new Set();
     fetch(messagesUrl)
       .then((r) => r.json())
-      .then(setMessages);
+      .then((rows: ChatMessageRow[]) => {
+        setMessages(rows);
+        // Suggestions live in the message text, so history carries the ones
+        // raised before this mount — without this they are lost on reload.
+        for (const row of rows) emitSuggestions(row.content);
+      });
   }, [messagesUrl]);
 
   async function consumeStream(res: Response) {
@@ -44,13 +71,7 @@ export function ChatThread({
     setStreamingText(null);
     const refreshed = await fetch(messagesUrl).then((r) => r.json());
     setMessages(refreshed);
-    parseSuggestions(text);
-  }
-
-  function parseSuggestions(text: string) {
-    for (const marker of parseSuggestionMarkers(text)) {
-      onSuggestionRef.current?.(marker);
-    }
+    emitSuggestions(text);
   }
 
   async function send() {
@@ -110,7 +131,7 @@ export function ChatThread({
                   m.role === "user" ? "bg-fountain-wash text-paper" : "bg-ink-wash text-paper/90"
                 }`}
               >
-                {m.content}
+                {stripSuggestionMarkers(m.content)}
               </span>
               {m.incomplete && <div className="mt-1 text-xs text-carbon">Incomplete response</div>}
             </div>
@@ -121,7 +142,7 @@ export function ChatThread({
             <div className="max-w-[85%]">
               <span className="mb-1 block text-[10px] uppercase tracking-widest text-ink-faint">Co-writer</span>
               <span className="block rounded-sm bg-ink-wash px-3 py-2 leading-relaxed whitespace-pre-wrap text-paper/90">
-                {streamingText}
+                {stripSuggestionMarkers(streamingText)}
               </span>
             </div>
           </div>

@@ -166,3 +166,76 @@ describe("ReferenceSidebar", () => {
     expect(screen.queryByText("Mira")).not.toBeInTheDocument();
   });
 });
+
+describe("ReferenceSidebar adding entries", () => {
+  // Routes by method rather than call order: the four bible loads fire first,
+  // so a queued one-off response would be eaten by the characters fetch.
+  function emptyBible(created?: unknown) {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
+      Promise.resolve(jsonResponse(init?.method === "POST" ? created ?? {} : []))
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("offers an add control for a section that has no entries yet", async () => {
+    emptyBible();
+
+    render(<ReferenceSidebar storyId="1" />);
+
+    expect(await screen.findByRole("button", { name: /add character/i })).toBeInTheDocument();
+  });
+
+  it("creates a character from the sidebar and shows it without a reload", async () => {
+    emptyBible({ id: 9, name: "Mira", appearance: "Scarred brow", personality: "" });
+
+    render(<ReferenceSidebar storyId="1" />);
+    await userEvent.click(await screen.findByRole("button", { name: /add character/i }));
+    await userEvent.type(screen.getByPlaceholderText("Name"), "Mira");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText("Mira")).toBeInTheDocument();
+  });
+
+  it("posts the new character to the characters endpoint", async () => {
+    const fetchMock = emptyBible({ id: 9, name: "Mira", appearance: "", personality: "" });
+
+    render(<ReferenceSidebar storyId="1" />);
+    await userEvent.click(await screen.findByRole("button", { name: /add character/i }));
+    await userEvent.type(screen.getByPlaceholderText("Name"), "Mira");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/stories/1/characters",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Mira", appearance: "", personality: "" }) })
+      )
+    );
+  });
+
+  it("refuses to save an entry with a blank name", async () => {
+    const fetchMock = emptyBible();
+
+    render(<ReferenceSidebar storyId="1" />);
+    await userEvent.click(await screen.findByRole("button", { name: /add character/i }));
+
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/stories/1/characters", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("uses the timeline's title field when adding a timeline event", async () => {
+    const fetchMock = emptyBible({ id: 9, title: "The heist", description: "" });
+
+    render(<ReferenceSidebar storyId="1" />);
+    await userEvent.click(await screen.findByRole("button", { name: /add timeline/i }));
+    await userEvent.type(screen.getByPlaceholderText("Name"), "The heist");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/stories/1/timeline",
+        expect.objectContaining({ body: JSON.stringify({ title: "The heist", description: "" }) })
+      )
+    );
+  });
+});

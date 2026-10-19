@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, Check, Clock, Loader2, MapPin, Pencil, Sparkles, Trash2, Users, X } from "lucide-react";
+import { ImageStrip } from "./ImageStrip";
+import { BookOpen, Check, Clock, Loader2, MapPin, Pencil, Plus, Sparkles, Trash2, Users, X } from "lucide-react";
 
 type Character = { id: number; name: string; appearance: string; personality: string };
 type NamedEntity = { id: number; name: string; description: string };
@@ -10,6 +11,11 @@ type TimelineEvent = { id: number; title: string; description: string };
 type FieldValues = Record<string, string>;
 type SectionItem = { id: number; title: string; values: FieldValues };
 type ResourceKind = "characters" | "places" | "themes" | "timeline";
+
+const IMAGE_ENTITY: Partial<Record<ResourceKind, "character" | "place">> = {
+  characters: "character",
+  places: "place",
+};
 
 const SUGGEST_TYPE: Partial<Record<ResourceKind, "character" | "place" | "theme">> = {
   characters: "character",
@@ -79,7 +85,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
       </div>
       {hasNothing && (
         <p className="font-mono text-xs text-ink-faint">
-          Nothing recorded yet — accept a suggestion, or add entries from Characters, Places, or Themes.
+          Nothing recorded yet — accept a suggestion, or add an entry with the buttons below.
         </p>
       )}
       {visible.has("characters") && (
@@ -88,6 +94,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
           heading="Characters"
           storyId={storyId}
           kind="characters"
+          singular="character"
           bodyKey="name"
           bodyFields={[
             { key: "appearance", label: "Appearance" },
@@ -108,6 +115,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
             )
           }
           onDeleted={(id) => setCharacters((prev) => prev.filter((c) => c.id !== id))}
+          onCreated={(row) => setCharacters((prev) => [...prev, row as unknown as Character])}
         />
       )}
       {visible.has("places") && (
@@ -116,6 +124,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
           heading="Places"
           storyId={storyId}
           kind="places"
+          singular="place"
           bodyKey="name"
           bodyFields={[{ key: "description", label: "Description" }]}
           items={places.map((p) => ({ id: p.id, title: p.name, values: { description: p.description } }))}
@@ -123,6 +132,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
             setPlaces((prev) => prev.map((p) => (p.id === id ? { ...p, name: patch.title, description: patch.values.description } : p)))
           }
           onDeleted={(id) => setPlaces((prev) => prev.filter((p) => p.id !== id))}
+          onCreated={(row) => setPlaces((prev) => [...prev, row as unknown as NamedEntity])}
         />
       )}
       {visible.has("themes") && (
@@ -131,6 +141,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
           heading="Themes"
           storyId={storyId}
           kind="themes"
+          singular="theme"
           bodyKey="name"
           bodyFields={[{ key: "description", label: "Description" }]}
           items={themes.map((t) => ({ id: t.id, title: t.name, values: { description: t.description } }))}
@@ -138,6 +149,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
             setThemes((prev) => prev.map((t) => (t.id === id ? { ...t, name: patch.title, description: patch.values.description } : t)))
           }
           onDeleted={(id) => setThemes((prev) => prev.filter((t) => t.id !== id))}
+          onCreated={(row) => setThemes((prev) => [...prev, row as unknown as NamedEntity])}
         />
       )}
       {visible.has("timeline") && (
@@ -146,6 +158,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
           heading="Timeline"
           storyId={storyId}
           kind="timeline"
+          singular="timeline"
           bodyKey="title"
           bodyFields={[{ key: "description", label: "Description" }]}
           items={timeline.map((t) => ({ id: t.id, title: t.title, values: { description: t.description } }))}
@@ -153,6 +166,7 @@ export function ReferenceSidebar({ storyId, refreshToken }: { storyId: string; r
             setTimeline((prev) => prev.map((t) => (t.id === id ? { ...t, title: patch.title, description: patch.values.description } : t)))
           }
           onDeleted={(id) => setTimeline((prev) => prev.filter((t) => t.id !== id))}
+          onCreated={(row) => setTimeline((prev) => [...prev, row as unknown as TimelineEvent])}
         />
       )}
     </aside>
@@ -164,21 +178,25 @@ function ReferenceSection({
   heading,
   storyId,
   kind,
+  singular,
   bodyKey,
   bodyFields,
   items,
   onSaved,
   onDeleted,
+  onCreated,
 }: {
   icon: React.ReactNode;
   heading: string;
   storyId: string;
   kind: ResourceKind;
+  singular: string;
   bodyKey: "name" | "title";
   bodyFields: { key: string; label: string }[];
   items: SectionItem[];
   onSaved: (id: number, patch: { title: string; values: FieldValues }) => void;
   onDeleted: (id: number) => void;
+  onCreated: (row: Record<string, unknown>) => void;
 }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
@@ -187,9 +205,42 @@ function ReferenceSection({
   const [savingId, setSavingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newValues, setNewValues] = useState<FieldValues>({});
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [savingNew, setSavingNew] = useState(false);
   const suggestType = SUGGEST_TYPE[kind];
 
-  if (items.length === 0) return null;
+  function cancelCreate() {
+    setCreating(false);
+    setNewTitle("");
+    setNewValues({});
+    setCreateError(null);
+  }
+
+  async function create() {
+    const name = newTitle.trim();
+    if (!name) return;
+    setSavingNew(true);
+    setCreateError(null);
+    try {
+      const body: Record<string, string> = { [bodyKey]: name };
+      for (const f of bodyFields) body[f.key] = newValues[f.key] ?? "";
+      const res = await fetch(`/api/stories/${storyId}/${kind}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Create failed");
+      onCreated(await res.json());
+      cancelCreate();
+    } catch {
+      setCreateError("Couldn't add — try again.");
+    } finally {
+      setSavingNew(false);
+    }
+  }
 
   function startEdit(item: SectionItem) {
     setEditingId(item.id);
@@ -262,6 +313,54 @@ function ReferenceSection({
         {icon} {heading}
       </h3>
       {error && editingId === null && <p className="mb-2 text-[10px] text-carbon">{error}</p>}
+      {creating ? (
+        <div className="mb-3 space-y-1.5 rounded-sm border border-fountain/40 p-2">
+          <input
+            autoFocus
+            placeholder="Name"
+            className="w-full border-b border-fountain bg-transparent pb-0.5 font-display text-sm text-paper placeholder:text-paper/30 focus:outline-none"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+          />
+          {bodyFields.map((f) => (
+            <div key={f.key}>
+              {bodyFields.length > 1 && (
+                <div className="font-mono text-[9px] uppercase tracking-widest text-paper/40">{f.label}</div>
+              )}
+              <textarea
+                placeholder={f.label}
+                className="w-full resize-none bg-transparent text-xs leading-relaxed text-paper/70 placeholder:text-paper/25 focus:outline-none"
+                value={newValues[f.key] ?? ""}
+                onChange={(e) => setNewValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                rows={2}
+              />
+            </div>
+          ))}
+          {createError && <p className="text-[10px] text-carbon">{createError}</p>}
+          <div className="flex flex-wrap gap-2 pt-0.5">
+            <button
+              onClick={create}
+              disabled={savingNew || !newTitle.trim()}
+              className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-fountain hover:text-paper disabled:opacity-50"
+            >
+              <Check size={11} /> {savingNew ? "Saving..." : "Save"}
+            </button>
+            <button
+              onClick={cancelCreate}
+              className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-paper/40 hover:text-paper/70"
+            >
+              <X size={11} /> Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setCreating(true)}
+          className="mb-2 flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-paper/35 hover:text-fountain"
+        >
+          <Plus size={11} /> Add {singular}
+        </button>
+      )}
       <ul className="space-y-3">
         {items.map((item) => (
           <li key={item.id}>
@@ -334,6 +433,17 @@ function ReferenceSection({
                     </button>
                   </div>
                 </div>
+                {IMAGE_ENTITY[kind] && (
+                  <div className="mt-1.5">
+                    <ImageStrip
+                      storyId={storyId}
+                      entityType={IMAGE_ENTITY[kind]!}
+                      entityId={item.id}
+                      size="sm"
+                      readOnly
+                    />
+                  </div>
+                )}
                 {bodyFields.map((f) =>
                   item.values[f.key] ? (
                     <div key={f.key} className="mt-1">

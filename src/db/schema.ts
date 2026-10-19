@@ -28,8 +28,25 @@ export const chapters = sqliteTable("chapters", {
   orderIndex: integer("order_index").notNull().default(0),
   status: text("status", { enum: ["drafting", "generated"] }).notNull().default("drafting"),
   generatedProse: text("generated_prose"),
+  currentVersionId: integer("current_version_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+
+export const proseVersions = sqliteTable("prose_versions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  chapterId: integer("chapter_id")
+    .notNull()
+    .references(() => chapters.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  contentHash: text("content_hash").notNull(),
+  source: text("source", { enum: ["generated", "edited", "imported", "reverted"] })
+    .notNull()
+    .default("generated"),
+  parentVersionId: integer("parent_version_id"),
+  label: text("label"),
+  model: text("model"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export const chatMessages = sqliteTable("chat_messages", {
@@ -89,4 +106,22 @@ export const timelineEvents = sqliteTable("timeline_events", {
   inStoryDateLabel: text("in_story_date_label").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+
+export const images = sqliteTable("images", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  storyId: integer("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  // Polymorphic on purpose: one table serves characters, places, chapters and
+  // the story cover, where per-entity columns would not.
+  entityType: text("entity_type", { enum: ["character", "place", "chapter", "story"] }).notNull(),
+  entityId: integer("entity_id").notNull(),
+  storedName: text("stored_name").notNull(),
+  contentHash: text("content_hash").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  caption: text("caption").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
