@@ -26,7 +26,12 @@ export function listCreateHandlers(repo: Repo, schema: ZodObject<ZodRawShape>) {
   };
 }
 
-export function itemHandlers(repo: Repo, schema: ZodObject<ZodRawShape>, paramName: string = "id") {
+export function itemHandlers(
+  repo: Repo,
+  schema: ZodObject<ZodRawShape>,
+  paramName: string = "id",
+  options: { afterDelete?: (id: number) => void } = {}
+) {
   return {
     async PATCH(req: NextRequest, ctx: { params: Promise<Record<string, string>> }) {
       const params = await ctx.params;
@@ -42,6 +47,7 @@ export function itemHandlers(repo: Repo, schema: ZodObject<ZodRawShape>, paramNa
       const params = await ctx.params;
       const id = params[paramName];
       repo.remove(Number(id));
+      options.afterDelete?.(Number(id));
       return new NextResponse(null, { status: 204 });
     },
   };

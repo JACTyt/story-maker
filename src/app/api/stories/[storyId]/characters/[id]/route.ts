@@ -1,13 +1,8 @@
-import { z } from "zod";
 import { characters } from "@/db/schema";
 import { createStoryScopedRepo } from "@/db/repo";
 import { itemHandlers } from "@/lib/apiRoute";
-
-const characterUpdateInput = z.object({
-  name: z.string().min(1),
-  appearance: z.string(),
-  personality: z.string(),
-});
+import { deleteImagesFor } from "@/db/images";
+import { characterUpdate } from "@/lib/entitySchemas";
 
 const repo = createStoryScopedRepo(characters);
-export const { PATCH, DELETE } = itemHandlers(repo, characterUpdateInput);
+export const { PATCH, DELETE } = itemHandlers(repo, characterUpdate, "id", { afterDelete: (id) => deleteImagesFor("character", id) });

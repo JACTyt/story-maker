@@ -1,21 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { BookOpen, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { StoryCard } from "@/components/StoryCard";
+import { AppHeader } from "@/components/AppHeader";
 
 type Story = { id: number; title: string; premise: string };
 
 export default function HomePage() {
   const [stories, setStories] = useState<Story[]>([]);
+  const [covers, setCovers] = useState<Record<number, number>>({});
   const [title, setTitle] = useState("");
   const [premise, setPremise] = useState("");
 
   useEffect(() => {
     fetch("/api/stories")
       .then((r) => r.json())
-      .then(setStories);
+      .then((rows: Story[]) => {
+        setStories(rows);
+        rows.forEach((s) => loadCover(s.id));
+      });
   }, []);
+
+  function loadCover(storyId: number) {
+    fetch(`/api/stories/${storyId}/images?entityType=story&entityId=${storyId}`)
+      .then((r) => r.json())
+      .then((imgs: { id: number; isPrimary?: boolean }[]) => {
+        const cover = imgs.find((i) => i.isPrimary) ?? imgs[0];
+        if (cover) setCovers((prev) => ({ ...prev, [storyId]: cover.id }));
+      })
+      .catch(() => {});
+  }
 
   async function createStory(e: React.FormEvent) {
     e.preventDefault();
@@ -33,68 +48,56 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-14">
-      <section className="mb-16">
-        <p className="mb-2 font-mono text-xs uppercase tracking-[0.3em] text-carbon">
-          A blank page
-        </p>
-        <h1 className="mb-8 max-w-xl font-display text-4xl leading-[1.1] font-medium text-paper sm:text-5xl">
-          Begin a new story.
-        </h1>
-        <form onSubmit={createStory} className="max-w-xl space-y-4">
-          <input
-            className="w-full border-b border-ink-line bg-transparent pb-3 font-display text-2xl text-paper placeholder:text-ink-faint focus:border-fountain focus:outline-none"
-            placeholder="Working title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-          <textarea
-            className="min-h-20 w-full resize-none rounded-sm border border-ink-line bg-ink-wash p-3 text-base text-paper/90 placeholder:text-ink-faint focus:border-fountain focus:outline-none"
-            placeholder="One or two sentences — what is this story about?"
-            value={premise}
-            onChange={(e) => setPremise(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="flex items-center gap-2 rounded-sm bg-paper px-5 py-2.5 font-mono text-sm uppercase tracking-wide text-ink transition-colors hover:bg-paper-dim"
-          >
-            <Plus size={15} /> Open a new folder
-          </button>
-        </form>
-      </section>
+    <>
+      <AppHeader />
+      <main className="mx-auto w-full max-w-5xl px-6 py-12">
+        <section className="mb-14 grid gap-8 md:grid-cols-[1fr_1.2fr] md:items-end">
+          <div>
+            <h1 className="text-4xl font-semibold tracking-tight">Begin a new story.</h1>
+            <p className="mt-2 text-muted">Talk it through with a co-writer, chapter by chapter. Everything stays on this computer.</p>
+          </div>
+          <form onSubmit={createStory} className="space-y-3 rounded-xl border border-line bg-surface p-4 shadow-soft">
+            <input
+              className="w-full bg-transparent text-xl font-semibold outline-none placeholder:text-muted"
+              placeholder="Working title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+            <textarea
+              className="min-h-16 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
+              placeholder="One or two sentences — what is this story about?"
+              value={premise}
+              onChange={(e) => setPremise(e.target.value)}
+            />
+            <button type="submit" className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg">
+              <Plus size={15} /> Create story
+            </button>
+          </form>
+        </section>
 
-      <section>
-        <h2 className="mb-5 font-mono text-xs uppercase tracking-[0.3em] text-ink-faint">
-          On the shelf
-        </h2>
+        <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-muted">Your stories</h2>
         {stories.length === 0 ? (
-          <p className="font-mono text-sm text-ink-faint">
-            Nothing shelved yet — the folder above is where the first one starts.
-          </p>
+          <p className="text-muted">No stories yet — the form above is where the first one starts.</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {stories.map((s) => (
               <li key={s.id}>
-                <Link
-                  href={`/stories/${s.id}`}
-                  className="group block rounded-sm border border-ink-line bg-ink-wash p-5 transition-colors hover:border-fountain-dim"
-                >
-                  <span className="mb-2 flex h-6 w-6 items-center justify-center rounded-sm bg-carbon/20 text-carbon">
-                    <BookOpen size={13} />
-                  </span>
-                  <span className="block font-display text-xl text-paper group-hover:text-fountain">
-                    {s.title}
-                  </span>
-                  {s.premise && (
-                    <span className="mt-2 block text-sm text-paper/60">{s.premise}</span>
-                  )}
-                </Link>
+                <StoryCard
+                  story={s}
+                  coverId={covers[s.id] ?? null}
+                  onCoverChanged={(imageId) => setCovers((prev) => ({ ...prev, [s.id]: imageId }))}
+                  onDuplicated={(copy) => {
+                    setStories((prev) => [copy, ...prev]);
+                    loadCover(copy.id);
+                  }}
+                  onDeleted={(id) => setStories((prev) => prev.filter((x) => x.id !== id))}
+                />
               </li>
             ))}
           </ul>
         )}
-      </section>
-    </main>
+      </main>
+    </>
   );
 }

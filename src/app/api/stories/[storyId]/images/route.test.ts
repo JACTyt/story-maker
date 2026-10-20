@@ -7,7 +7,10 @@ import { stories, characters } from "@/db/schema";
 import { resetTestDb } from "@/db/testDb";
 import { storeImage } from "@/db/images";
 import { GET, POST } from "./route";
-import { GET as GET_FILE, DELETE } from "./[imageId]/route";
+import { GET as GET_FILE, DELETE, PATCH } from "./[imageId]/route";
+import { POST as REORDER } from "./reorder/route";
+import { DELETE as DELETE_CHARACTER } from "../characters/[id]/route";
+import { imageFilePath } from "@/db/images";
 
 let uploadRoot: string;
 let storyId: number;
@@ -135,5 +138,54 @@ describe("GET and DELETE /api/stories/:storyId/images/:imageId", () => {
     });
 
     expect(res.status).toBe(204);
+  });
+});
+
+describe("image metadata routes", () => {
+  function json(body: unknown, method = "PATCH") {
+    return new Request("http://localhost", { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  }
+
+  it("PATCH updates caption and primary", async () => {
+    const a = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: PNG });
+    const b = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: new Uint8Array([...PNG, 2]) });
+    const res = await PATCH(json({ caption: "Dusk", isPrimary: true }) as never, {
+      params: Promise.resolve({ storyId: String(storyId), imageId: String(b.id) }),
+    });
+    const body = await res.json();
+    expect(body.caption).toBe("Dusk");
+    expect(body.isPrimary).toBe(true);
+    const list = await (await GET(new Request(`http://localhost?entityType=character&entityId=${characterId}`) as never, ctx())).json();
+    expect(list.find((i: { id: number }) => i.id === a.id).isPrimary).toBe(false);
+  });
+
+  it("GET with primary=1 lists one portrait per entity across the story", async () => {
+    storeImage({ storyId, entityType: "character", entityId: characterId, bytes: PNG });
+    storeImage({ storyId, entityType: "character", entityId: characterId, bytes: new Uint8Array([...PNG, 2]) });
+    const res = await GET(new Request("http://localhost?entityType=character&primary=1") as never, ctx());
+    const rows = await res.json();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].entityId).toBe(characterId);
+  });
+
+  it("POST reorder rewrites order, ignoring ids from other stories", async () => {
+    const a = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: PNG });
+    const b = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: new Uint8Array([...PNG, 2]) });
+    const res = await REORDER(json({ ids: [b.id, a.id] }, "POST") as never, ctx());
+    expect(res.status).toBe(204);
+    const list = await (await GET(new Request(`http://localhost?entityType=character&entityId=${characterId}`) as never, ctx())).json();
+    expect(list.map((i: { id: number }) => i.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe("deleting an owner removes its images", () => {
+  it("character DELETE removes that character's image rows and files", async () => {
+    const row = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: PNG });
+    await DELETE_CHARACTER(new Request("http://localhost", { method: "DELETE" }) as never, {
+      params: Promise.resolve({ storyId: String(storyId), id: String(characterId) }),
+    });
+    const list = await (await GET(new Request(`http://localhost?entityType=character&entityId=${characterId}`) as never, ctx())).json();
+    expect(list).toEqual([]);
+    expect(fs.existsSync(imageFilePath(row))).toBe(false);
   });
 });

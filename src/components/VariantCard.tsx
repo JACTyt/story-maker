@@ -14,8 +14,8 @@ export function VariantCard({
   onChange: (next: Variant) => void;
 }) {
   return (
-    <div className="rounded-sm border border-ink-line bg-ink-wash p-3">
-      <label className="mb-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-ink-faint">
+    <div className="rounded-md border border-line bg-surface p-3">
+      <label className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
         <input
           type="checkbox"
           checked={variant.checked}
@@ -24,7 +24,7 @@ export function VariantCard({
         Keep this
       </label>
       <input
-        className="mb-2 w-full rounded-sm border border-ink-line bg-ink px-2 py-1.5 text-sm text-paper focus:border-fountain focus:outline-none"
+        className="mb-2 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
         placeholder={nameLabel}
         value={variant.name}
         onChange={(e) => onChange({ ...variant, name: e.target.value })}
@@ -32,7 +32,7 @@ export function VariantCard({
       {fields.map((f) => (
         <textarea
           key={f.key}
-          className="mb-2 w-full resize-none rounded-sm border border-ink-line bg-ink px-2 py-1.5 text-sm text-paper focus:border-fountain focus:outline-none last:mb-0"
+          className="mb-2 w-full resize-none rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none last:mb-0"
           placeholder={f.label}
           value={variant.values[f.key] ?? ""}
           onChange={(e) => onChange({ ...variant, values: { ...variant.values, [f.key]: e.target.value } })}

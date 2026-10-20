@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { ArrowLeft, Check, Save, AlertCircle } from "lucide-react";
 
 type StorySettings = {
@@ -68,25 +69,27 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
   }
 
   if (!settings) {
-    return <main className="p-8 font-mono text-sm text-ink-faint">Loading...</main>;
+    return <main className="p-8 text-sm text-muted">Loading...</main>;
   }
 
   return (
+    <>
+    <AppHeader />
     <main className="mx-auto max-w-md px-6 py-12">
       <Link
         href={`/stories/${storyId}`}
-        className="mb-6 inline-flex items-center gap-1 font-mono text-xs uppercase tracking-widest text-paper/50 hover:text-fountain"
+        className="mb-6 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-muted hover:text-accent"
       >
         <ArrowLeft size={12} /> Back to story
       </Link>
-      <h1 className="mb-1 font-display text-3xl font-medium text-paper">Settings</h1>
-      <p className="mb-8 font-mono text-sm text-paper/50">Who&rsquo;s holding the pen for this story.</p>
+      <h1 className="mb-1 font-semibold text-3xl font-medium text-fg">Settings</h1>
+      <p className="mb-8 text-sm text-muted">Who&rsquo;s holding the pen for this story.</p>
 
-      <div className="space-y-5 rounded-sm border border-ink-line bg-ink-wash p-5">
+      <div className="space-y-5 rounded-md border border-line bg-surface p-5">
         <div>
-          <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">Provider</label>
+          <label className="mb-1.5 block text-xs uppercase tracking-widest text-muted">Provider</label>
           <select
-            className="w-full rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper focus:border-fountain focus:outline-none"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
             value={settings.defaultProvider}
             onChange={(e) => setSettings({ ...settings, defaultProvider: e.target.value })}
           >
@@ -97,9 +100,9 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
         </div>
 
         <div>
-          <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">Model</label>
+          <label className="mb-1.5 block text-xs uppercase tracking-widest text-muted">Model</label>
           <input
-            className="w-full rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper focus:border-fountain focus:outline-none"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
             value={settings.defaultModel}
             onChange={(e) => setSettings({ ...settings, defaultModel: e.target.value })}
           />
@@ -107,11 +110,11 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
 
         {settings.defaultProvider === "ollama" && (
           <div>
-            <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">
+            <label className="mb-1.5 block text-xs uppercase tracking-widest text-muted">
               Ollama host
             </label>
             <input
-              className="w-full rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper focus:border-fountain focus:outline-none"
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
               value={settings.ollamaHost}
               onChange={(e) => setSettings({ ...settings, ollamaHost: e.target.value })}
             />
@@ -119,22 +122,22 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
         )}
 
         <div>
-          <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">
+          <label className="mb-1.5 block text-xs uppercase tracking-widest text-muted">
             Custom instructions
           </label>
           <textarea
             rows={4}
             placeholder="Extra guidance for the assistant, e.g. tone, POV, style rules..."
-            className="w-full resize-y rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper placeholder:text-ink-faint focus:border-fountain focus:outline-none"
+            className="w-full resize-y rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
             value={settings.systemPrompt}
             onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
           />
         </div>
 
         <div>
-          <label className="mb-1.5 flex items-center justify-between font-mono text-xs uppercase tracking-widest text-ink-faint">
+          <label className="mb-1.5 flex items-center justify-between text-xs uppercase tracking-widest text-muted">
             Temperature
-            <span className="text-paper/70">{settings.temperature.toFixed(1)}</span>
+            <span className="text-muted">{settings.temperature.toFixed(1)}</span>
           </label>
           <input
             type="range"
@@ -143,12 +146,12 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
             step={0.1}
             value={settings.temperature}
             onChange={(e) => setSettings({ ...settings, temperature: Number(e.target.value) })}
-            className="w-full accent-fountain"
+            className="w-full accent-[var(--accent)]"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-ink-faint">
+          <label className="mb-1.5 block text-xs uppercase tracking-widest text-muted">
             Max output tokens
           </label>
           <input
@@ -156,18 +159,18 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
             min={256}
             max={64000}
             step={256}
-            className="w-full rounded-sm border border-ink-line bg-ink px-3 py-2 font-mono text-sm text-paper focus:border-fountain focus:outline-none"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
             value={settings.maxTokens}
             onChange={(e) => setSettings({ ...settings, maxTokens: Number(e.target.value) })}
           />
         </div>
 
-        <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-ink-faint">
+        <label className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted">
           <input
             type="checkbox"
             checked={settings.extendedThinking}
             onChange={(e) => setSettings({ ...settings, extendedThinking: e.target.checked })}
-            className="accent-fountain"
+            className="accent-[var(--accent)]"
           />
           Extended thinking
         </label>
@@ -176,22 +179,23 @@ export default function SettingsPage({ params }: { params: Promise<{ storyId: st
           <button
             onClick={save}
             disabled={saveState === "saving"}
-            className="flex items-center gap-1.5 rounded-sm bg-paper px-4 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:bg-paper-dim disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs uppercase tracking-wide text-accent-fg hover:opacity-90 disabled:opacity-50"
           >
             <Save size={13} /> {saveState === "saving" ? "Saving..." : "Save"}
           </button>
           {saveState === "saved" && (
-            <span className="flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-fountain">
+            <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-accent">
               <Check size={13} /> Saved
             </span>
           )}
           {saveState === "error" && (
-            <span className="flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-carbon">
+            <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-danger">
               <AlertCircle size={13} /> Couldn&rsquo;t save — try again
             </span>
           )}
         </div>
       </div>
     </main>
+    </>
   );
 }

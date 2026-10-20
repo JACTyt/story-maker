@@ -2,47 +2,23 @@ import { describe, it, expect } from "vitest";
 import { buildChatSystemPrompt, buildProseSystemPrompt, buildQuickStartPrompt, buildSuggestEntityPrompt } from "./prompts";
 
 describe("buildChatSystemPrompt", () => {
-  it("includes premise, characters, places, themes, and the suggestion format", () => {
-    const prompt = buildChatSystemPrompt(
-      { premise: "A moon made of spice" },
-      {
-        characters: [{ name: "Mira", appearance: "Scar over one eyebrow", personality: "Guarded but loyal" }],
-        places: [{ name: "Docking bay", description: "Where Mira is cornered" }],
-        themes: [{ name: "Cyberpunk", description: "Neon-lit megacorp dystopia" }],
-        timelineEvents: [{ title: "The war begins", description: "Empire attacks", inStoryDateLabel: "Year 20" }],
-      }
-    );
+  it("includes premise, the story bible, and the suggestion format", () => {
+    const prompt = buildChatSystemPrompt({ premise: "A moon made of spice" }, "In this chapter:\n- Mira — guarded");
     expect(prompt).toContain("A moon made of spice");
-    expect(prompt).toContain("Mira — Appearance: Scar over one eyebrow. Personality: Guarded but loyal.");
-    expect(prompt).toContain("Docking bay: Where Mira is cornered");
-    expect(prompt).toContain("Cyberpunk: Neon-lit megacorp dystopia");
-    expect(prompt).toContain("Year 20: The war begins: Empire attacks");
+    expect(prompt).toContain("- Mira — guarded");
     expect(prompt).toContain("[[suggest:character|Name|Appearance|Personality]]");
     expect(prompt).toContain("[[suggest:TYPE|name|description]]");
-    expect(prompt).toContain("Do not propose a character, place, or theme that is already listed above as known");
-  });
-
-  it("handles empty entity lists gracefully", () => {
-    const prompt = buildChatSystemPrompt(
-      { premise: "" },
-      { characters: [], places: [], themes: [], timelineEvents: [] }
-    );
-    expect(prompt).toContain("(none yet)");
+    expect(prompt).toContain("Do not propose a character, place, or theme that is already in the story bible above");
+    expect(prompt).toContain("aliases=");
   });
 
   it("appends the author's custom instructions when set", () => {
-    const prompt = buildChatSystemPrompt(
-      { premise: "A moon made of spice", systemPrompt: "Always write in first person." },
-      { characters: [], places: [], themes: [], timelineEvents: [] }
-    );
+    const prompt = buildChatSystemPrompt({ premise: "x", systemPrompt: "Always write in first person." }, "");
     expect(prompt).toContain("Additional instructions from the author:\nAlways write in first person.");
   });
 
   it("omits the author instructions section when systemPrompt is blank", () => {
-    const prompt = buildChatSystemPrompt(
-      { premise: "A moon made of spice", systemPrompt: "   " },
-      { characters: [], places: [], themes: [], timelineEvents: [] }
-    );
+    const prompt = buildChatSystemPrompt({ premise: "x", systemPrompt: "   " }, "");
     expect(prompt).not.toContain("Additional instructions from the author");
   });
 });
@@ -54,22 +30,14 @@ describe("buildProseSystemPrompt", () => {
     expect(prompt).toContain("don't merely transcribe or lightly paraphrase");
   });
 
-  it("includes known characters and places when provided, for consistency", () => {
-    const prompt = buildProseSystemPrompt(
-      { premise: "A moon made of spice" },
-      {
-        characters: [{ name: "Mira", appearance: "Scar over one eyebrow", personality: "Guarded but loyal" }],
-        places: [{ name: "Docking bay", description: "A rusted freight platform" }],
-      }
-    );
-    expect(prompt).toContain("Mira — Appearance: Scar over one eyebrow. Personality: Guarded but loyal.");
-    expect(prompt).toContain("Docking bay: A rusted freight platform");
+  it("includes the story bible when provided, for consistency", () => {
+    const prompt = buildProseSystemPrompt({ premise: "x" }, "- Mira — Appearance: Scar");
+    expect(prompt).toContain("Story bible (stay consistent with every established detail):");
+    expect(prompt).toContain("- Mira — Appearance: Scar");
   });
 
-  it("omits character/place sections when no entities are provided", () => {
-    const prompt = buildProseSystemPrompt({ premise: "A moon made of spice" });
-    expect(prompt).not.toContain("Known characters");
-    expect(prompt).not.toContain("Known places");
+  it("omits the bible section when none is provided", () => {
+    expect(buildProseSystemPrompt({ premise: "x" })).not.toContain("Story bible");
   });
 });
 
@@ -113,5 +81,15 @@ describe("buildSuggestEntityPrompt", () => {
     );
     expect(prompt).toContain('new place: "The Rust Market"');
     expect(prompt).toContain("[[suggest:place|The Rust Market|description]]");
+  });
+});
+
+describe("prose formatting instruction", () => {
+  it("tells the model exactly which markdown the editor supports", () => {
+    const prompt = buildProseSystemPrompt({ premise: "p" });
+    expect(prompt).toContain("* * *");
+    expect(prompt).toContain("*italic*");
+    expect(prompt).toContain("> blockquotes");
+    expect(prompt).toMatch(/Do not use headings/);
   });
 });

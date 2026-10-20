@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, primaryKey, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
 export const stories = sqliteTable("stories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -66,8 +66,14 @@ export const characters = sqliteTable("characters", {
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  aliases: text("aliases", { mode: "json" }).$type<string[]>().notNull().default([]),
+  role: text("role", { enum: ["protagonist", "antagonist", "supporting", "minor", ""] }).notNull().default(""),
+  summary: text("summary").notNull().default(""),
   appearance: text("appearance").notNull().default(""),
   personality: text("personality").notNull().default(""),
+  backstory: text("backstory").notNull().default(""),
+  goals: text("goals").notNull().default(""),
+  notes: text("notes").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
@@ -79,6 +85,10 @@ export const places = sqliteTable("places", {
     .references(() => stories.id, { onDelete: "cascade" }),
   chapterId: integer("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
   name: text("name").notNull(),
+  aliases: text("aliases", { mode: "json" }).$type<string[]>().notNull().default([]),
+  kind: text("kind").notNull().default(""),
+  parentPlaceId: integer("parent_place_id").references((): AnySQLiteColumn => places.id, { onDelete: "set null" }),
+  summary: text("summary").notNull().default(""),
   description: text("description").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
@@ -101,9 +111,11 @@ export const timelineEvents = sqliteTable("timeline_events", {
     .notNull()
     .references(() => stories.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  aliases: text("aliases", { mode: "json" }).$type<string[]>().notNull().default([]),
   description: text("description").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
   inStoryDateLabel: text("in_story_date_label").notNull().default(""),
+  placeId: integer("place_id").references(() => places.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
@@ -122,6 +134,47 @@ export const images = sqliteTable("images", {
   mimeType: text("mime_type").notNull(),
   byteSize: integer("byte_size").notNull(),
   caption: text("caption").notNull().default(""),
+  isPrimary: integer("is_primary", { mode: "boolean" }).notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
+
+export const characterRelationships = sqliteTable("character_relationships", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  storyId: integer("story_id")
+    .notNull()
+    .references(() => stories.id, { onDelete: "cascade" }),
+  fromCharacterId: integer("from_character_id")
+    .notNull()
+    .references(() => characters.id, { onDelete: "cascade" }),
+  toCharacterId: integer("to_character_id")
+    .notNull()
+    .references(() => characters.id, { onDelete: "cascade" }),
+  label: text("label").notNull().default(""),
+});
+
+export const timelineEventChapters = sqliteTable(
+  "timeline_event_chapters",
+  {
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => timelineEvents.id, { onDelete: "cascade" }),
+    chapterId: integer("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.chapterId] })]
+);
+
+export const timelineEventCharacters = sqliteTable(
+  "timeline_event_characters",
+  {
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => timelineEvents.id, { onDelete: "cascade" }),
+    characterId: integer("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.characterId] })]
+);

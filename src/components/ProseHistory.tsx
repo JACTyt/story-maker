@@ -78,7 +78,7 @@ export function ProseHistory({
 
   if (versions.length === 0) {
     return (
-      <p className="font-mono text-xs text-ink-faint">
+      <p className="text-sm text-muted">
         No drafts saved yet — generate this chapter and every version is kept here.
       </p>
     );
@@ -86,37 +86,37 @@ export function ProseHistory({
 
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+      <h3 className="mb-2 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-muted">
         <History size={11} /> Draft history
       </h3>
-      {error && <p className="mb-2 font-mono text-[10px] text-carbon">{error}</p>}
+      {error && <p className="mb-2 text-xs text-danger">{error}</p>}
       <ul className="space-y-2">
         {versions.map((v) => (
-          <li key={v.id} className="rounded-sm border border-ink-line p-2">
+          <li key={v.id} className="rounded-lg border border-line bg-surface p-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-              <span className="font-mono text-[10px] uppercase tracking-wide text-paper/70">
+              <span className="text-xs font-semibold uppercase tracking-wide">
                 {SOURCE_LABEL[v.source] ?? v.source}
-                {v.id === current.id && <span className="ml-1.5 text-fountain">· current</span>}
+                {v.id === current.id && <span className="ml-1.5 text-accent">· current</span>}
               </span>
-              <span className="font-mono text-[10px] text-ink-faint">
+              <span className="text-xs text-muted">
                 {wordCount(v.content)} words{v.model ? ` · ${v.model}` : ""}
               </span>
             </div>
-            <div className="mt-0.5 font-mono text-[10px] text-ink-faint">{formatWhen(v.createdAt)}</div>
+            <div className="mt-0.5 text-xs text-muted">{formatWhen(v.createdAt)}</div>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {v.id !== current.id && (
                 <>
                   <button
                     onClick={() => revert(v.id)}
                     disabled={revertingId === v.id}
-                    className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-fountain hover:text-paper disabled:opacity-50"
+                    className="flex items-center gap-1 text-xs font-medium text-accent disabled:opacity-50"
                   >
                     {revertingId === v.id ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
                     Restore
                   </button>
                   <button
                     onClick={() => setComparingId((prev) => (prev === v.id ? null : v.id))}
-                    className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-paper/40 hover:text-fountain"
+                    className="flex items-center gap-1 text-xs text-muted hover:text-fg"
                   >
                     <SplitSquareHorizontal size={11} />
                     {comparingId === v.id ? "Hide" : "Compare"}
@@ -125,16 +125,16 @@ export function ProseHistory({
               )}
             </div>
             {comparingId === v.id && (
-              <div className="mt-2 space-y-0.5 border-t border-ink-line pt-2 font-mono text-[10px] leading-relaxed">
+              <div className="mt-2 space-y-0.5 border-t border-line pt-2 font-mono text-[11px] leading-relaxed">
                 {diffLines(v.content, current.content).map((line, i) => (
                   <div
                     key={i}
                     className={
                       line.type === "added"
-                        ? "text-fountain"
+                        ? "text-place"
                         : line.type === "removed"
-                          ? "text-carbon line-through"
-                          : "text-paper/40"
+                          ? "text-danger line-through"
+                          : "text-muted"
                     }
                   >
                     <span aria-hidden className="select-none pr-1 opacity-60">

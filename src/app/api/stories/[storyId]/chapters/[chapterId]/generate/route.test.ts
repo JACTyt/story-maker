@@ -4,6 +4,7 @@ import { stories, chapters, chatMessages } from "@/db/schema";
 import { resetTestDb } from "@/db/testDb";
 import { eq } from "drizzle-orm";
 import { POST } from "./route";
+import { STREAM_ERROR_PREFIX } from "@/lib/streamProtocol";
 import { listProseVersions, currentProse } from "@/db/proseVersions";
 import type { ChatMessage, LlmProvider, SendChatOptions } from "@/lib/providers";
 
@@ -102,5 +103,48 @@ describe("/api/.../generate keeps prior drafts", () => {
     await generate("First draft.");
 
     expect(listProseVersions(chapterId)[0].model).toBe("claude-opus-5");
+  });
+});
+
+describe("/api/.../generate?stream=1", () => {
+  let storyId: number;
+  let chapterId: number;
+
+  beforeEach(() => {
+    resetTestDb();
+    storyId = db.insert(stories).values({ title: "Test Story" }).returning().get().id;
+    chapterId = db.insert(chapters).values({ storyId, title: "Chapter 1" }).returning().get().id;
+  });
+
+  class ChunkedProvider implements LlmProvider {
+    async *sendChat() {
+      yield "She ";
+      yield "*ran*.";
+    }
+  }
+
+  function streamReq(provider: LlmProvider) {
+    return POST(
+      new Request("http://localhost?stream=1", { method: "POST" }) as any,
+      { params: Promise.resolve({ storyId: String(storyId), chapterId: String(chapterId) }) },
+      provider
+    );
+  }
+
+  it("streams prose chunks and records one generated version at the end", async () => {
+    const res = await streamReq(new ChunkedProvider());
+    expect(res.headers.get("content-type")).toContain("text/plain");
+    expect(await res.text()).toBe("She *ran*.");
+    const versions = listProseVersions(chapterId);
+    expect(versions).toHaveLength(1);
+    expect(versions[0].source).toBe("generated");
+    expect(versions[0].content).toBe("She *ran*.");
+  });
+
+  it("ends with an error frame and records nothing when the provider fails", async () => {
+    const res = await streamReq(new FailingProvider());
+    const text = await res.text();
+    expect(text).toContain(`${STREAM_ERROR_PREFIX}provider unreachable`);
+    expect(listProseVersions(chapterId)).toHaveLength(0);
   });
 });

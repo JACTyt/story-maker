@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { stories } from "@/db/schema";
+import { deleteStoryUploads } from "@/db/images";
 
 const storyUpdateInput = z.object({
   title: z.string().min(1).optional(),
@@ -42,5 +43,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ storyId: 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ storyId: string }> }) {
   const { storyId } = await ctx.params;
   db.delete(stories).where(eq(stories.id, Number(storyId))).run();
+  // Image rows cascade with the story; the files on disk do not.
+  deleteStoryUploads(Number(storyId));
   return new NextResponse(null, { status: 204 });
 }

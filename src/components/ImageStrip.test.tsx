@@ -99,3 +99,36 @@ describe("ImageStrip", () => {
     expect(screen.queryByLabelText(/add image/i)).not.toBeInTheDocument();
   });
 });
+
+describe("ImageStrip gallery", () => {
+  it("makes an image the main portrait", async () => {
+    const fetchMock = respondWith(oneImage);
+    vi.stubGlobal("fetch", fetchMock);
+    const onChanged = vi.fn();
+    render(<ImageStrip storyId="1" entityType="character" entityId={7} onChanged={onChanged} />);
+    await userEvent.click(await screen.findByRole("button", { name: /make main portrait/i }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/stories/1/images/5",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isPrimary: true }) })
+      )
+    );
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("opens a full-size viewer and saves an edited caption", async () => {
+    const fetchMock = respondWith(oneImage);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ImageStrip storyId="1" entityType="character" entityId={7} />);
+    await userEvent.click(await screen.findByRole("button", { name: /view image/i }));
+    const caption = screen.getByRole("textbox", { name: /caption/i });
+    await userEvent.clear(caption);
+    await userEvent.type(caption, "At dusk{enter}");
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/stories/1/images/5",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ caption: "At dusk" }) })
+      )
+    );
+  });
+});

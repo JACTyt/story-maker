@@ -1,79 +1,171 @@
 @import "tailwindcss";
 
+/* Every page follows the theme, so dark mode is driven by the data-theme
+   attribute rather than the OS preference alone. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --fg: #1d1c1a;
+  --muted: #75716a;
+  --line: #e2dfd7;
+  --accent: #2f4fd8;
+  --accent-fg: #ffffff;
+  --danger: #c92a2a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 28px -12px rgba(0, 0, 0, 0.18);
+
+  /* One colour per entity type, shared by highlights, chips and rails. */
+  --c-character: #d9480f;
+  --c-place: #0b8a73;
+  --c-timeline: #7048e8;
+  --c-theme: #c78a00;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121211;
+  --surface: #1b1b19;
+  --surface-2: #242421;
+  --fg: #ebe9e3;
+  --muted: #8f8b83;
+  --line: #2f2e2b;
+  --accent: #7b93ff;
+  --accent-fg: #0d0d0c;
+  --danger: #ff6b6b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+
+  --c-character: #ff8a4c;
+  --c-place: #3cc9a8;
+  --c-timeline: #a991ff;
+  --c-theme: #f0b429;
+
+  color-scheme: dark;
+}
+
 @theme inline {
-  /* Ink: the desk — neutral charcoal chrome everything is worked from */
-  --color-ink: #17161c;
-  --color-ink-wash: #211f27;
-  --color-ink-line: #34313c;
-  --color-ink-faint: #726d7c;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-character: var(--c-character);
+  --color-place: var(--c-place);
+  --color-timeline: var(--c-timeline);
+  --color-theme: var(--c-theme);
 
-  /* Paper: the literal manuscript surface */
-  --color-paper: #efede6;
-  --color-paper-dim: #e2dfd4;
-  --color-paper-line: #cfcbbc;
+  --shadow-soft: var(--shadow);
 
-  /* Verdigris: the signature accent — annotations, AI suggestions (aged-ink green) */
-  --color-carbon: #4c9686;
-  --color-carbon-dim: #386f63;
-  --color-carbon-wash: #16221f;
-
-  /* Gold leaf: interactive ink — links, primary actions */
-  --color-fountain: #d6a54b;
-  --color-fountain-dim: #b3873a;
-  --color-fountain-wash: #2a2013;
-
-  --font-display: var(--font-space-grotesk), "Helvetica Neue", Arial, sans-serif;
-  --font-manuscript: var(--font-newsreader), "Iowan Old Style", Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-prose: var(--font-newsreader), "Iowan Old Style", Georgia, serif;
 }
 
 body {
-  font-family: var(--font-mono);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
 }
 
 ::selection {
-  background: var(--color-carbon);
-  color: var(--color-ink);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-fountain);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* A literal page: the surface every piece of real manuscript prose sits on.
-   Deliberately has no font-family of its own — callers opt into font-manuscript
-   only where the text is actual prose, not for card labels or captions. */
-.page-surface {
-  background: var(--color-paper);
-  color: #232220;
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.25),
-    0 12px 30px -12px rgba(0, 0, 0, 0.6);
-}
+/* Entity-type colour hook: any element with .t-<type> exposes --c. */
+.t-character { --c: var(--c-character); }
+.t-place { --c: var(--c-place); }
+.t-timeline { --c: var(--c-timeline); }
+.t-theme { --c: var(--c-theme); }
 
-/* A carbon-copy margin note: the AI's editorial suggestion, pinned beside the chat */
-.carbon-note {
-  background: var(--color-carbon-wash);
-  border: 1px dashed var(--color-carbon);
-  color: #d9ece7;
-  font-family: var(--font-mono);
-  transform: rotate(-0.6deg);
-}
+/* ---------- prose (editor + read-only views) ---------- */
 
-.carbon-note:nth-of-type(even) {
-  transform: rotate(0.5deg);
+.prose-page {
+  font-family: var(--font-prose);
+  font-size: 19px;
+  line-height: 1.7;
 }
+.prose-page p { margin: 0 0 1em; }
+.prose-page blockquote {
+  margin: 0 0 1em;
+  padding: 2px 0 2px 18px;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+  font-style: italic;
+}
+.prose-page hr {
+  border: 0;
+  margin: 1.4em 0;
+  text-align: center;
+}
+.prose-page hr::after {
+  content: "* * *";
+  color: var(--muted);
+  letter-spacing: 0.5em;
+}
+.prose-page .ProseMirror { outline: none; min-height: 50vh; }
+.prose-page .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.prose-page a[href^="entity:"] { color: inherit; text-decoration: none; }
+
+/* ---------- entity mentions ---------- */
+
+.mention {
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-color: var(--c);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  text-decoration-style: dotted;
+  border-radius: 3px;
+}
+.mention.manual { text-decoration-style: solid; }
+.mention.ambiguous { text-decoration-style: wavy; text-decoration-thickness: 1px; }
+.mention.ambiguous::after {
+  content: "?";
+  font: 700 10px var(--font-sans);
+  vertical-align: super;
+  color: var(--c);
+  margin-left: 1px;
+}
+.mention.quiet { text-decoration-color: transparent; }
+.mention:hover,
+.mention.focus {
+  text-decoration-color: var(--c);
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+}
+.highlights-off .mention {
+  text-decoration-color: transparent;
+  cursor: text;
+}
+.highlights-off .mention::after { content: none; }
+.highlights-off .mention:hover { background: none; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .carbon-note {
-    animation: pin-in 240ms ease-out;
-  }
+  .slide-in { transition: transform 0.2s ease; }
 }
 
-@keyframes pin-in {
-  from {
-    opacity: 0;
-    transform: rotate(-4deg) translateY(-4px);
-  }
+.prose-page h1,
+.prose-page h2 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
 }
+.prose-page h1 { font-size: 1.6em; }
+.prose-page h2 { font-size: 1.25em; }

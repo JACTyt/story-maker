@@ -38,3 +38,20 @@ describe("/api/stories/:storyId/characters", () => {
     expect(body[0].name).toBe("Mira");
   });
 });
+
+describe("character extended fields", () => {
+  it("stores aliases, role and summary", async () => {
+    resetTestDb();
+    const sid = db.insert(stories).values({ title: "T" }).returning().get().id;
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Elizabeth", aliases: ["Liz", " liz "], role: "protagonist", summary: "Runs from debts." }),
+    });
+    const res = await POST(req as never, { params: Promise.resolve({ storyId: String(sid) }) });
+    const body = await res.json();
+    expect(body.aliases).toEqual(["Liz"]);
+    expect(body.role).toBe("protagonist");
+    expect(body.summary).toBe("Runs from debts.");
+  });
+});

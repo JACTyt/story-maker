@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Newsreader, IBM_Plex_Mono } from "next/font/google";
-import Link from "next/link";
-import { BookOpen } from "lucide-react";
+import { Newsreader } from "next/font/google";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
   style: ["normal", "italic"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -33,21 +20,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${spaceGrotesk.variable} ${newsreader.variable} ${plexMono.variable} h-full antialiased`}
-    >
-      <body className="flex h-full min-h-screen flex-col bg-ink text-paper">
-        <header className="flex items-center justify-between border-b border-ink-line px-6 py-3">
-          <Link href="/" className="flex items-center gap-2 font-display text-lg tracking-wide text-paper">
-            <BookOpen size={18} /> Story Maker
-          </Link>
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-paper/40">
-            draft &middot; revise &middot; bind
-          </span>
-        </header>
-        <div className="flex flex-1 flex-col">{children}</div>
-      </body>
+    // The boot script sets data-theme before hydration, so the attribute is
+    // expected to differ from the server render.
+    <html lang="en" className={`${newsreader.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
+      <body className="flex h-full min-h-screen flex-col bg-bg text-fg">{children}</body>
     </html>
   );
 }

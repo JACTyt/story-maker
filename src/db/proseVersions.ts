@@ -119,3 +119,12 @@ export function revertToProseVersion(chapterId: number, versionId: number): Pros
 
   return created;
 }
+
+/**
+ * Autosave path: keeps the live prose current while the writer types, without
+ * turning every pause into a history entry. A real version is cut later
+ * (save, leaving the chapter, or after enough time), from whatever is live then.
+ */
+export function saveDraftProse(chapterId: number, content: string): void {
+  db.update(chapters).set({ generatedProse: content, updatedAt: new Date() }).where(eq(chapters.id, chapterId)).run();
+}

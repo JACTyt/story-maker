@@ -5,7 +5,7 @@ import os from "node:os";
 import { db } from "./client";
 import { stories, characters } from "./schema";
 import { resetTestDb } from "./testDb";
-import { storeImage, listImages, getImage, deleteImage, imageFilePath } from "./images";
+import { storeImage, listImages, getImage, deleteImage, imageFilePath, updateImage, reorderImages, primaryImages, deleteImagesFor, deleteStoryUploads } from "./images";
 
 let uploadRoot: string;
 
@@ -123,5 +123,83 @@ describe("deleteImage", () => {
     deleteImage(first.id);
 
     expect(fs.existsSync(imageFilePath(second))).toBe(true);
+  });
+});
+
+describe("primary image", () => {
+  it("makes the first upload for an entity its primary, later ones not", () => {
+    const { storyId, characterId } = seed();
+    const first = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    const second = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(2) });
+    expect(first.isPrimary).toBe(true);
+    expect(second.isPrimary).toBe(false);
+  });
+
+  it("setting a new primary clears the old one", () => {
+    const { storyId, characterId } = seed();
+    const first = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    const second = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(2) });
+    updateImage(second.id, { isPrimary: true });
+    expect(getImage(first.id)?.isPrimary).toBe(false);
+    expect(getImage(second.id)?.isPrimary).toBe(true);
+  });
+
+  it("deleting the primary promotes the next image", () => {
+    const { storyId, characterId } = seed();
+    const first = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    const second = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(2) });
+    deleteImage(first.id);
+    expect(getImage(second.id)?.isPrimary).toBe(true);
+  });
+
+  it("primaryImages returns one primary per entity of a type", () => {
+    const { storyId, characterId } = seed();
+    storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(2) });
+    const rows = primaryImages(storyId, "character");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].entityId).toBe(characterId);
+  });
+});
+
+describe("updateImage / reorderImages", () => {
+  it("edits the caption", () => {
+    const { storyId, characterId } = seed();
+    const row = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    expect(updateImage(row.id, { caption: "At the docks" })?.caption).toBe("At the docks");
+  });
+
+  it("rewrites sort order from an ordered id list", () => {
+    const { storyId, characterId } = seed();
+    const a = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    const b = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(2) });
+    reorderImages([b.id, a.id]);
+    expect(listImages("character", characterId).map((i) => i.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe("cleanup when owners are deleted", () => {
+  it("deleteImagesFor removes an entity's rows and unshared files", () => {
+    const { storyId, characterId } = seed();
+    const row = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    deleteImagesFor("character", characterId);
+    expect(listImages("character", characterId)).toEqual([]);
+    expect(fs.existsSync(imageFilePath(row))).toBe(false);
+  });
+
+  it("keeps a file another entity still uses", () => {
+    const { storyId, characterId } = seed();
+    const other = db.insert(characters).values({ storyId, name: "Tom" }).returning().get().id;
+    const mine = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    storeImage({ storyId, entityType: "character", entityId: other, bytes: png(1) });
+    deleteImagesFor("character", characterId);
+    expect(fs.existsSync(imageFilePath(mine))).toBe(true);
+  });
+
+  it("deleteStoryUploads removes the story's whole upload folder", () => {
+    const { storyId, characterId } = seed();
+    const row = storeImage({ storyId, entityType: "character", entityId: characterId, bytes: png(1) });
+    deleteStoryUploads(storyId);
+    expect(fs.existsSync(path.dirname(imageFilePath(row)))).toBe(false);
   });
 });

@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./client";
 import { stories, chapters } from "./schema";
 import { resetTestDb } from "./testDb";
-import { recordProseVersion, listProseVersions, revertToProseVersion, currentProse } from "./proseVersions";
+import { eq } from "drizzle-orm";
+import { recordProseVersion, listProseVersions, revertToProseVersion, currentProse, saveDraftProse } from "./proseVersions";
 
 describe("prose versions", () => {
   let chapterId: number;
@@ -86,5 +87,17 @@ describe("prose versions", () => {
   it("reports no prose for a chapter that has never been generated", () => {
     expect(currentProse(chapterId)).toBe("");
     expect(listProseVersions(chapterId)).toEqual([]);
+  });
+});
+
+describe("draft saves", () => {
+  beforeEach(() => resetTestDb());
+  it("updates the live prose without adding a version", () => {
+    const storyId = db.insert(stories).values({ title: "S" }).returning().get().id;
+    const chapterId = db.insert(chapters).values({ storyId, title: "C" }).returning().get().id;
+    recordProseVersion(chapterId, { content: "v1", source: "generated" });
+    saveDraftProse(chapterId, "v1 plus typing");
+    expect(listProseVersions(chapterId)).toHaveLength(1);
+    expect(db.select().from(chapters).where(eq(chapters.id, chapterId)).get()?.generatedProse).toBe("v1 plus typing");
   });
 });

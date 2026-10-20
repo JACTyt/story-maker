@@ -64,8 +64,14 @@ export async function POST(
     return NextResponse.json({ error: "Couldn't generate a suggestion — try again." }, { status: 502 });
   }
 
+  const extras = {
+    ...(marker.aliases ? { aliases: marker.aliases } : {}),
+    ...(marker.summary ? { summary: marker.summary } : {}),
+    ...(marker.role && marker.type === "character" ? { role: marker.role } : {}),
+    ...(marker.kind && marker.type === "place" ? { kind: marker.kind } : {}),
+  };
   if (marker.type === "character") {
-    return NextResponse.json({ appearance: marker.appearance, personality: marker.personality });
+    return NextResponse.json({ appearance: marker.appearance, personality: marker.personality, ...extras });
   }
-  return NextResponse.json({ description: marker.description });
+  return NextResponse.json({ description: marker.description, ...extras });
 }

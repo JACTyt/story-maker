@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { ArrowLeft, Check, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { VariantCard, type Variant } from "@/components/VariantCard";
 
@@ -118,19 +119,21 @@ export default function QuickStartPage({ params }: { params: Promise<{ storyId: 
   }
 
   return (
+    <>
+    <AppHeader />
     <main className="mx-auto max-w-3xl px-6 py-12">
       <Link
         href={`/stories/${storyId}`}
-        className="mb-6 inline-flex items-center gap-1 font-mono text-xs uppercase tracking-widest text-paper/50 hover:text-fountain"
+        className="mb-6 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-muted hover:text-accent"
       >
         <ArrowLeft size={12} /> Back to story
       </Link>
-      <h1 className="mb-1 font-display text-3xl font-medium text-paper">Quick start</h1>
-      <p className="mb-8 font-mono text-sm text-paper/50">Describe your story, and pick from what comes back.</p>
+      <h1 className="mb-1 font-semibold text-3xl font-medium text-fg">Quick start</h1>
+      <p className="mb-8 text-sm text-muted">Describe your story, and pick from what comes back.</p>
 
       <div className="mb-8 max-w-xl space-y-2">
         <textarea
-          className="min-h-24 w-full resize-none rounded-sm border border-ink-line bg-ink-wash p-3 text-paper placeholder:text-ink-faint focus:border-fountain focus:outline-none"
+          className="min-h-24 w-full resize-none rounded-md border border-line bg-surface p-3 text-fg placeholder:text-muted focus:border-accent focus:outline-none"
           placeholder="What's this story about?"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -138,7 +141,7 @@ export default function QuickStartPage({ params }: { params: Promise<{ storyId: 
         <button
           onClick={generate}
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-sm bg-paper px-4 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:bg-paper-dim disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-xs uppercase tracking-wide text-accent-fg hover:opacity-90 disabled:opacity-50"
         >
           {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
           {loading ? "Generating..." : "Generate"}
@@ -146,9 +149,9 @@ export default function QuickStartPage({ params }: { params: Promise<{ storyId: 
       </div>
 
       {error && (
-        <div className="mb-8 flex items-center justify-between rounded-sm border border-carbon bg-carbon-wash px-3 py-2 text-carbon">
+        <div className="mb-8 flex items-center justify-between rounded-md border border-danger bg-surface-2 px-3 py-2 text-danger">
           <span>{error}</span>
-          <button onClick={generate} className="flex items-center gap-1 underline hover:text-paper">
+          <button onClick={generate} className="flex items-center gap-1 underline hover:text-fg">
             <RotateCcw size={12} /> Try again
           </button>
         </div>
@@ -156,7 +159,7 @@ export default function QuickStartPage({ params }: { params: Promise<{ storyId: 
 
       {generated && (
         <>
-          {notice && <p className="mb-6 font-mono text-sm text-ink-faint">{notice}</p>}
+          {notice && <p className="mb-6 text-sm text-muted">{notice}</p>}
 
           <VariantSection
             heading="Characters"
@@ -183,12 +186,12 @@ export default function QuickStartPage({ params }: { params: Promise<{ storyId: 
           />
 
           {saveErrors.length > 0 && (
-            <p className="mb-4 text-carbon">Couldn&rsquo;t save: {saveErrors.join(", ")}. Try again.</p>
+            <p className="mb-4 text-danger">Couldn&rsquo;t save: {saveErrors.join(", ")}. Try again.</p>
           )}
           <button
             onClick={addSelected}
             disabled={saving}
-            className="flex items-center gap-1.5 rounded-sm bg-paper px-5 py-2.5 font-mono text-xs uppercase tracking-wide text-ink hover:bg-paper-dim disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md bg-accent px-5 py-2.5 text-xs uppercase tracking-wide text-accent-fg hover:opacity-90 disabled:opacity-50"
           >
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
             {saving ? "Saving..." : "Add selected to story bible"}
@@ -196,6 +199,7 @@ export default function QuickStartPage({ params }: { params: Promise<{ storyId: 
         </>
       )}
     </main>
+    </>
   );
 }
 
@@ -214,7 +218,7 @@ function VariantSection({
 }) {
   return (
     <section className="mb-8">
-      <h2 className="mb-3 font-mono text-xs uppercase tracking-[0.3em] text-ink-faint">{heading}</h2>
+      <h2 className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">{heading}</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {variants.map((v, i) => (
           <VariantCard key={i} variant={v} nameLabel={nameLabel} fields={fields} onChange={(next) => onChangeAt(i, next)} />

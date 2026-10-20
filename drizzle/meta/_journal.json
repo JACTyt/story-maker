@@ -50,6 +50,13 @@
       "when": 1789342284432,
       "tag": "0006_images",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1792497287703,
+      "tag": "0007_story_connections",
+      "breakpoints": true
     }
   ]
 }

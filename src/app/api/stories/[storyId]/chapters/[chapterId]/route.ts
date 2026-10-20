@@ -3,7 +3,8 @@ import { z } from "zod";
 import { chapters } from "@/db/schema";
 import { createStoryScopedRepo } from "@/db/repo";
 import { itemHandlers } from "@/lib/apiRoute";
-import { recordProseVersion } from "@/db/proseVersions";
+import { recordProseVersion, saveDraftProse } from "@/db/proseVersions";
+import { deleteImagesFor } from "@/db/images";
 
 const chapterUpdateInput = z.object({
   title: z.string().min(1),
@@ -21,7 +22,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ chapterId:
   return NextResponse.json(chapter);
 }
 
-const { PATCH: patchFields, DELETE } = itemHandlers(repo, chapterUpdateInput, "chapterId");
+const { PATCH: patchFields, DELETE } = itemHandlers(repo, chapterUpdateInput, "chapterId", {
+  afterDelete: (id) => deleteImagesFor("chapter", id),
+});
 
 /**
  * Prose is routed through the version history rather than written in place, so
@@ -29,11 +32,12 @@ const { PATCH: patchFields, DELETE } = itemHandlers(repo, chapterUpdateInput, "c
  */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<Record<string, string>> }) {
   const body = await req.json();
-  const { generatedProse, ...rest } = body ?? {};
+  const { generatedProse, versioning, ...rest } = body ?? {};
 
   if (typeof generatedProse === "string") {
     const { chapterId } = await ctx.params;
-    recordProseVersion(Number(chapterId), { content: generatedProse, source: "edited" });
+    if (versioning === "draft") saveDraftProse(Number(chapterId), generatedProse);
+    else recordProseVersion(Number(chapterId), { content: generatedProse, source: "edited" });
   }
 
   if (Object.keys(rest).length === 0) {

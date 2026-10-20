@@ -37,7 +37,7 @@ export function ResizeHandle({ onResize }: { onResize: (deltaX: number) => void 
       onMouseDown={handleMouseDown}
       role="separator"
       aria-orientation="vertical"
-      className={`hidden w-1.5 shrink-0 cursor-col-resize lg:block ${dragging ? "bg-fountain" : "bg-ink-line hover:bg-fountain/50"}`}
+      className={`w-1 shrink-0 cursor-col-resize ${dragging ? "bg-accent" : "bg-line hover:bg-accent/50"}`}
     />
   );
 }

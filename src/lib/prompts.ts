@@ -2,7 +2,6 @@ import { stripSuggestionMarkers } from "./suggestions";
 
 type NamedEntity = { name: string; description: string };
 type CharacterEntity = { name: string; appearance: string; personality: string };
-type TimelineEntity = { title: string; description: string; inStoryDateLabel: string };
 
 type StoryContext = { premise: string; systemPrompt?: string };
 
@@ -10,55 +9,46 @@ function authorInstructionLines(story: StoryContext): string[] {
   return story.systemPrompt?.trim() ? [`Additional instructions from the author:\n${story.systemPrompt.trim()}`] : [];
 }
 
+/** Optional keyed fields any marker may carry; the parser ignores unknown or empty ones. */
+export const MARKER_EXTRAS_INSTRUCTION =
+  "You may append optional fields to any marker, each as key=value: aliases=comma, separated, names (other names or nicknames used in the text), summary=one short line, role=protagonist|antagonist|supporting|minor (characters only), kind=city|building|room|vessel|etc. (places only).";
+
 const MARKER_FORMAT_INSTRUCTION =
-  "When you notice a new character, place, theme, or timeline event worth tracking, propose it using this exact format on its own line: [[suggest:character|Name|Appearance|Personality]] for a character (Appearance = physical/external description, Personality = character traits), or [[suggest:TYPE|name|description]] for a place, theme, or timeline event, where TYPE is place, theme, or timeline. Do not propose a character, place, or theme that is already listed above as known — only propose things that are genuinely new.";
+  "When you notice a new character, place, theme, or timeline event worth tracking, propose it using this exact format on its own line: [[suggest:character|Name|Appearance|Personality]] for a character (Appearance = physical/external description, Personality = character traits), or [[suggest:TYPE|name|description]] for a place, theme, or timeline event, where TYPE is place, theme, or timeline. Do not propose a character, place, or theme that is already in the story bible above — only propose things that are genuinely new.";
 
-export function buildChatSystemPrompt(
-  story: StoryContext,
-  entities: { characters: CharacterEntity[]; places: NamedEntity[]; themes: NamedEntity[]; timelineEvents: TimelineEntity[] }
-): string {
-  const characterLines =
-    entities.characters.map((c) => `- ${c.name} — Appearance: ${c.appearance}. Personality: ${c.personality}.`).join("\n") ||
-    "(none yet)";
-  const placeLines = entities.places.map((p) => `- ${p.name}: ${p.description}`).join("\n") || "(none yet)";
-  const themeLines = entities.themes.map((t) => `- ${t.name}: ${t.description}`).join("\n") || "(none yet)";
-  const timelineLines =
-    entities.timelineEvents
-      .map((e) => `- ${e.inStoryDateLabel ? e.inStoryDateLabel + ": " : ""}${e.title}: ${e.description}`)
-      .join("\n") || "(none yet)";
-
+/**
+ * @param storyBible the chapter-scoped bible from `buildStoryContext().toPrompt()`:
+ *   full detail for what this chapter touches, one line for the rest.
+ */
+export function buildChatSystemPrompt(story: StoryContext, storyBible: string): string {
   return [
     "You are a collaborative fiction-writing assistant helping a novelist develop a story through conversation.",
     `Story premise: ${story.premise || "(not set yet)"}`,
-    "Known characters:",
-    characterLines,
-    "Known places (locations where the action takes place):",
-    placeLines,
-    "Known themes (genre and setting styles, e.g. Cyberpunk, Post-apocalypse, Gothic horror — not literary themes like \"betrayal\" or \"trust\"):",
-    themeLines,
-    "Known timeline events:",
-    timelineLines,
+    "Known story bible:",
+    storyBible,
     ...authorInstructionLines(story),
     MARKER_FORMAT_INSTRUCTION,
+    MARKER_EXTRAS_INSTRUCTION,
   ].join("\n\n");
 }
 
-export function buildProseSystemPrompt(
-  story: StoryContext,
-  entities?: { characters: CharacterEntity[]; places: NamedEntity[] }
-): string {
-  const characterLines =
-    entities?.characters.map((c) => `- ${c.name} — Appearance: ${c.appearance}. Personality: ${c.personality}.`).join("\n") ||
-    "";
-  const placeLines = entities?.places.map((p) => `- ${p.name}: ${p.description}`).join("\n") || "";
+/** The formatting set the editor supports; anything else is lost or flattened on load. */
+export const PROSE_FORMAT_INSTRUCTION = [
+  "Write only the prose itself, with no commentary, title, headings, or meta-text. Format it as markdown, using only:",
+  "- *italic* for a character's unspoken thoughts, emphasis, foreign words, and titles of works",
+  "- **bold** rarely, only for something that must visually shout (a sign, a scream)",
+  "- a line containing only * * * between scenes, when time or place jumps",
+  "- > blockquotes for letters, notes, inscriptions, signs, or documents quoted in full",
+  "Separate paragraphs with a blank line. Do not use headings, lists, tables, or code.",
+].join("\n");
 
+export function buildProseSystemPrompt(story: StoryContext, storyBible?: string): string {
   return [
     "You are a skilled fiction writer. Expand the conversation below between a novelist and their writing assistant into fully realized narrative prose for one chapter — don't merely transcribe or lightly paraphrase the dialogue. Add sensory detail, setting description, pacing, and interiority so the result reads like a finished chapter, not a chat log.",
     `Story premise: ${story.premise || "(not set yet)"}`,
-    ...(characterLines ? ["Known characters (stay consistent with their established appearance and personality):", characterLines] : []),
-    ...(placeLines ? ["Known places (stay consistent with their established description):", placeLines] : []),
+    ...(storyBible ? ["Story bible (stay consistent with every established detail):", storyBible] : []),
     ...authorInstructionLines(story),
-    "Write only the prose itself, with no commentary, headings, or meta-text.",
+    PROSE_FORMAT_INSTRUCTION,
   ].join("\n\n");
 }
 
@@ -90,6 +80,7 @@ export function buildQuickStartPrompt(
     themeLines,
     "The writer will describe what they want next. Propose about 3 NEW character variants, 3 NEW place variants, and 3 NEW theme (genre/setting) variants that fit their description and do not duplicate what's already established above.",
     "Output ONLY lines in this exact format, one per proposal, and nothing else: [[suggest:character|Name|Appearance|Personality]] for a character (Appearance = physical/external description, Personality = character traits), or [[suggest:TYPE|name|description]] for a place or theme, where TYPE is place or theme.",
+    MARKER_EXTRAS_INSTRUCTION,
   ].join("\n\n");
 }
 
@@ -123,5 +114,6 @@ export function buildSuggestEntityPrompt(
       type === "character" ? "appearance and personality" : "description"
     } for it, consistent with the story premise and everything already established above.`,
     outputInstruction,
-  ].join("\n\n");
+    type === "theme" ? "" : `${MARKER_EXTRAS_INSTRUCTION} Always include summary= and, when natural, aliases=.`,
+  ].filter(Boolean).join("\n\n");
 }

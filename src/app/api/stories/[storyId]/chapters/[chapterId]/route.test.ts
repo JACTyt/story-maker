@@ -93,3 +93,22 @@ describe("PATCH chapter prose is versioned", () => {
     expect(listProseVersions(chapterId2)).toHaveLength(1);
   });
 });
+
+describe("draft autosave via PATCH", () => {
+  it("updates prose without a version when versioning is draft", async () => {
+    resetTestDb();
+    const sid = db.insert(stories).values({ title: "S" }).returning().get().id;
+    const cid = db.insert(chapters).values({ storyId: sid, title: "C" }).returning().get().id;
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ generatedProse: "typing…", versioning: "draft" }),
+      }) as never,
+      { params: Promise.resolve({ storyId: String(sid), chapterId: String(cid) }) }
+    );
+    expect(res.status).toBe(200);
+    expect(listProseVersions(cid)).toHaveLength(0);
+    expect((await res.json()).generatedProse).toBe("typing…");
+  });
+});

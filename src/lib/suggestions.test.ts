@@ -123,3 +123,27 @@ describe("parseSuggestionMarkers — reporting dropped markers", () => {
     expect(dropped).toEqual([]);
   });
 });
+
+describe("keyed extra fields", () => {
+  it("reads role, summary and aliases from key=value fields without disturbing positional ones", () => {
+    const [m] = parseSuggestionMarkers(
+      "[[suggest:character|Elizabeth|Tall, ink-stained|Stubborn|role=protagonist|summary=Runs from debts.|aliases=Liz, Beth]]"
+    );
+    expect(m).toMatchObject({
+      type: "character",
+      name: "Elizabeth",
+      appearance: "Tall, ink-stained",
+      personality: "Stubborn",
+      role: "protagonist",
+      summary: "Runs from debts.",
+      aliases: ["Liz", "Beth"],
+    });
+  });
+
+  it("reads kind for places and ignores an unknown role", () => {
+    const [place] = parseSuggestionMarkers("[[suggest:place|Old Harbour|Tar and gulls|kind=district|aliases=the harbour]]");
+    expect(place).toMatchObject({ type: "place", description: "Tar and gulls", kind: "district", aliases: ["the harbour"] });
+    const [c] = parseSuggestionMarkers("[[suggest:character|Tom|Lean|Quiet|role=villain]]");
+    expect(c).not.toHaveProperty("role");
+  });
+});

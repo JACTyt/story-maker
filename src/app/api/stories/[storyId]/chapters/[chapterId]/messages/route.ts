@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { chapters, chatMessages, characters, places, themes, timelineEvents, stories } from "@/db/schema";
+import { chapters, chatMessages, stories } from "@/db/schema";
 import { getProvider, type LlmProvider, type ProviderName } from "@/lib/providers";
 import { buildChatSystemPrompt } from "@/lib/prompts";
+import { loadBible } from "@/db/bible";
+import { buildStoryContext } from "@/lib/storyContext";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ chapterId: string }> }) {
   const { chapterId } = await ctx.params;
@@ -43,12 +45,12 @@ export function streamAssistantReply(storyId: number, chapterId: number, provide
     .orderBy(asc(chatMessages.createdAt))
     .all();
 
-  const systemPrompt = buildChatSystemPrompt(story, {
-    characters: db.select().from(characters).where(eq(characters.storyId, storyId)).all(),
-    places: db.select().from(places).where(eq(places.storyId, storyId)).all(),
-    themes: db.select().from(themes).where(eq(themes.storyId, storyId)).all(),
-    timelineEvents: db.select().from(timelineEvents).where(eq(timelineEvents.storyId, storyId)).all(),
-  });
+  const chapter = db.select().from(chapters).where(eq(chapters.id, chapterId)).get();
+  const storyBible = buildStoryContext(loadBible(storyId), {
+    chapterId,
+    texts: [chapter?.generatedProse ?? "", ...history.map((m) => m.content)],
+  }).toPrompt();
+  const systemPrompt = buildChatSystemPrompt(story, storyBible);
 
   const messages = [
     { role: "system" as const, content: systemPrompt },

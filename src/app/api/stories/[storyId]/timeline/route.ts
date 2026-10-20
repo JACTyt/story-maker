@@ -1,14 +1,15 @@
-import { z } from "zod";
-import { timelineEvents } from "@/db/schema";
-import { createStoryScopedRepo } from "@/db/repo";
-import { listCreateHandlers } from "@/lib/apiRoute";
+import { NextRequest, NextResponse } from "next/server";
+import { createTimelineEvent, listTimelineEvents } from "@/db/storyLinks";
+import { timelineCreate } from "@/lib/entitySchemas";
 
-const timelineInput = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional().default(""),
-  sortOrder: z.number().int().optional().default(0),
-  inStoryDateLabel: z.string().optional().default(""),
-});
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ storyId: string }> }) {
+  const { storyId } = await ctx.params;
+  return NextResponse.json(listTimelineEvents(Number(storyId)));
+}
 
-const repo = createStoryScopedRepo(timelineEvents);
-export const { GET, POST } = listCreateHandlers(repo, timelineInput);
+export async function POST(req: NextRequest, ctx: { params: Promise<{ storyId: string }> }) {
+  const { storyId } = await ctx.params;
+  const parsed = timelineCreate.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  return NextResponse.json(createTimelineEvent(Number(storyId), parsed.data), { status: 201 });
+}

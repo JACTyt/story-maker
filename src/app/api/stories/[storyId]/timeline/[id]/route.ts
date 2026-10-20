@@ -1,14 +1,20 @@
-import { z } from "zod";
-import { timelineEvents } from "@/db/schema";
-import { createStoryScopedRepo } from "@/db/repo";
-import { itemHandlers } from "@/lib/apiRoute";
+import { NextRequest, NextResponse } from "next/server";
+import { deleteTimelineEvent, updateTimelineEvent } from "@/db/storyLinks";
+import { timelineUpdate } from "@/lib/entitySchemas";
 
-const timelineUpdateInput = z.object({
-  title: z.string().min(1),
-  description: z.string(),
-  sortOrder: z.number().int(),
-  inStoryDateLabel: z.string(),
-});
+type Ctx = { params: Promise<{ storyId: string; id: string }> };
 
-const repo = createStoryScopedRepo(timelineEvents);
-export const { PATCH, DELETE } = itemHandlers(repo, timelineUpdateInput);
+export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const { storyId, id } = await ctx.params;
+  const parsed = timelineUpdate.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const updated = updateTimelineEvent(Number(storyId), Number(id), parsed.data);
+  if (!updated) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json(updated);
+}
+
+export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const { storyId, id } = await ctx.params;
+  deleteTimelineEvent(Number(storyId), Number(id));
+  return new NextResponse(null, { status: 204 });
+}

@@ -12,6 +12,11 @@
     "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/markdown": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/react": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
     "better-sqlite3": "^13.0.2",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.28.0",

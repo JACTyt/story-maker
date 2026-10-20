@@ -33,3 +33,16 @@ describe("/api/stories/:storyId/export", () => {
     );
   });
 });
+
+describe("export cleans editing aids", () => {
+  it("removes entity links but keeps their text", async () => {
+    resetTestDb();
+    const storyId = db
+      .insert(stories)
+      .values({ title: "S", compiledProse: "Then [the old man](entity:character/3) coughed." })
+      .returning()
+      .get().id;
+    const res = await GET(new Request("http://localhost") as any, { params: Promise.resolve({ storyId: String(storyId) }) });
+    expect(await res.text()).toBe("Then the old man coughed.");
+  });
+});

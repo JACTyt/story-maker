@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { db } from "./client";
 import { images } from "./schema";
 import { detectImageType, extensionFor } from "@/lib/images/sniff";
@@ -70,6 +70,8 @@ export function storeImage(input: StoreInput): ImageRow {
       mimeType,
       byteSize: input.bytes.byteLength,
       caption: input.caption ?? "",
+      // The first picture of an entity is its portrait until the writer picks another.
+      isPrimary: siblings.length === 0,
       sortOrder: siblings.length,
     })
     .returning()
@@ -99,6 +101,11 @@ export function deleteImage(id: number): void {
 
   db.delete(images).where(eq(images.id, id)).run();
 
+  if (image.isPrimary) {
+    const next = listImages(image.entityType as ImageEntityType, image.entityId)[0];
+    if (next) db.update(images).set({ isPrimary: true }).where(eq(images.id, next.id)).run();
+  }
+
   const stillReferenced = db
     .select()
     .from(images)
@@ -107,4 +114,49 @@ export function deleteImage(id: number): void {
   if (stillReferenced.length === 0) {
     fs.rmSync(imageFilePath(image), { force: true });
   }
+}
+
+type ImagePatch = { caption?: string; isPrimary?: boolean };
+
+/** Only `isPrimary: true` is meaningful — an entity always keeps one portrait while it has images. */
+export function updateImage(id: number, patch: ImagePatch): ImageRow | undefined {
+  const image = getImage(id);
+  if (!image) return undefined;
+
+  if (patch.isPrimary) {
+    db.update(images)
+      .set({ isPrimary: false })
+      .where(and(eq(images.entityType, image.entityType), eq(images.entityId, image.entityId), ne(images.id, id)))
+      .run();
+    db.update(images).set({ isPrimary: true }).where(eq(images.id, id)).run();
+  }
+  if (patch.caption !== undefined) {
+    db.update(images).set({ caption: patch.caption }).where(eq(images.id, id)).run();
+  }
+  return getImage(id);
+}
+
+export function reorderImages(orderedIds: number[]): void {
+  orderedIds.forEach((id, index) => {
+    db.update(images).set({ sortOrder: index }).where(eq(images.id, id)).run();
+  });
+}
+
+/** Portraits for every entity of one type in a story — one query for lists, rails and hover cards. */
+export function primaryImages(storyId: number, entityType: ImageEntityType): ImageRow[] {
+  return db
+    .select()
+    .from(images)
+    .where(and(eq(images.storyId, storyId), eq(images.entityType, entityType), eq(images.isPrimary, true)))
+    .all();
+}
+
+/** Images belong to an entity by (type, id) without a foreign key, so owners must clean up explicitly. */
+export function deleteImagesFor(entityType: ImageEntityType, entityId: number): void {
+  for (const image of listImages(entityType, entityId)) deleteImage(image.id);
+}
+
+/** Story rows cascade in the database; their files live outside it. */
+export function deleteStoryUploads(storyId: number): void {
+  fs.rmSync(storyDir(storyId), { recursive: true, force: true });
 }

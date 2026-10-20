@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { characters, places, chapters, stories } from "@/db/schema";
-import { storeImage, listImages, MAX_IMAGE_BYTES, type ImageEntityType } from "@/db/images";
+import { storeImage, listImages, primaryImages, MAX_IMAGE_BYTES, type ImageEntityType } from "@/db/images";
 
 const ENTITY_TABLES = { character: characters, place: places, chapter: chapters, story: stories } as const;
 
@@ -22,9 +22,12 @@ function entityBelongsToStory(entityType: ImageEntityType, entityId: number, sto
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ storyId: string }> }) {
-  await ctx.params;
+  const { storyId } = await ctx.params;
   const url = new URL(req.url);
   const entityType = url.searchParams.get("entityType") ?? "";
+  if (url.searchParams.get("primary") === "1" && isEntityType(entityType)) {
+    return NextResponse.json(primaryImages(Number(storyId), entityType));
+  }
   const entityId = Number(url.searchParams.get("entityId"));
   if (!isEntityType(entityType) || !Number.isFinite(entityId)) {
     return NextResponse.json({ error: "entityType and entityId are required" }, { status: 400 });
